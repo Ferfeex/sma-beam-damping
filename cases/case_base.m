@@ -1,5 +1,5 @@
 function cfg = case_base()
-% BASE CASE  Free vibration of the SMA beam (thesis chapter 3.3.2, Fig. 3.x / 4.3).
+% BASE CASE  Free vibration of the SMA beam (thesis chapter 3.3.2; the ring-down is the one of thesis Fig. 4.3).
 %   Cu-Al-Zn-Mn beam 1000 x 15 x 10 mm, simply supported, ferro-elastic (T below Mf),
 %   released with an initial half-sine velocity field. It rings down because every stress
 %   reversal dissipates energy (loss factor eta ~ 0.14, C = eta/(2*pi*10 Hz) K).

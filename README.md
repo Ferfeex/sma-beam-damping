@@ -90,6 +90,13 @@ maximum):
 (The ratio of successive peaks, ~0.76, is what the loss factor controls; peaks 2-6 are the
 values of thesis Fig. 4.3: about 5.5, 4.15, 3.1, 2.2, 1.6 mm.)
 
+The sandwich beam (`run_case('composite')`, GFRP skins around the SMA core) rings down more slowly
+than the pure SMA beam (the SMA is only part of the structure): peaks 7.05, 6.24, 5.50, 4.81, 4.19, 3.63 mm
+(`docs/composite_midspan.png`).
+
+The strain and martensite-fraction fields over the beam can be plotted with
+`run_case('base','Tf',0.3,'plot_fields',true)` (`docs/fields_example.png`).
+
 ![Loss factor fit](docs/loss_factor_fit.png)
 
 *Loss factor eta versus reversal strain computed from Brinson cycles, and its polynomial fit.*
@@ -181,7 +188,7 @@ run_tests('full')              % + the full base and composite runs, peaks versu
 * Khalili et al. (2013), *Transient dynamic analysis of pseudoelastic SMA hybrid composite beam* -
   Euler-Bernoulli beam with the Brinson model, in MATLAB; the closest methodological relative.
   <https://doi.org/10.1016/j.amc.2013.03.092>
-* Saedi et al. (2023), *Energy damping in shape memory alloys: a review* (material side).
+* Saedi et al. (2023), *Energy damping in shape memory alloys* (review; material side).
   <https://doi.org/10.1016/j.jallcom.2023.170286>
 * Tabrizikahou et al. (2022), *Shape memory alloys for structural vibration control* (modelling and large structures).
   <https://doi.org/10.1016/j.conbuildmat.2022.127975>
