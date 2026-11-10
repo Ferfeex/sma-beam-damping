@@ -112,7 +112,7 @@ conclusions. Federico decides whether to adopt it (`run_case('base','newton_or',
 | Short runs vs the **unmodified original scripts** run in a child Octave (`tests/run_tests.m`): base Tf=0.03 (581 steps), pulse Tf=0.025 (1912 steps, covers the ramp and the 0.02 s release), pre-strain SE Tf=0.02 (170 steps), composite Tf=0.03 | **all difference 0** (composite: 0 with the original `Matrices.mat`, 1.9e-9 relative with recomputed ones) |
 | Same case twice in one Octave session | identical (globals are reset) |
 | Regenerated loss-factor fit (`Tension_compression_parametric.m`) vs the original `data/p.mat` | regenerated `p` agrees with the original within 0.001-0.003 for strain >= 0.3 %, lower at small strain (0.119 vs 0.137 at 0.06 %) |
-| `tests/run_tests('full')` (final state of the repo) | TESTS_FULL |
+| `tests/run_tests('full')` (final state of the repo) | **all 9 checks passed** (quick checks above + full base run peaks 7.09/5.49/4.15/3.08/2.24/1.61 mm + full composite run, 44 s) |
 
 Runtimes in Octave (1 core): base ~370 s (333 s alone), composite ~53-80 s, `hle_linear` 2 s, linear pulses 10-17 s.
 **Not verified:** full runs of `pulse` and `prestrain_se` (hours; only the shortened runs above), anything in MATLAB
