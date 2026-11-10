@@ -1,12 +1,29 @@
-function status = myfun(T,X,flag,Ea,Emp,ssp,sfp,eps_Lp,b,Extr,Extr_tr,csi,y,B,N,BB11,BB12,BB13,BB14,BB21,BB22,BB23,BB24,BB31,BB32,BB33,BB34,BB41,BB42,BB43,BB44,Temp0,ssmart,sfmart,ssaus,sfaus,As,Af,CAp,p,eps0)
+function status = myfun_SE(T,X,flag,prm)
+% OutputFcn for the SUPER-ELASTIC, pre-stressed case (one martensite fraction xi_s^+ only).
+% Same structure as myfun.m (strain -> Newton on stress/xi -> tangent K -> loss factor/damping
+% update at stress reversal), with the austenite<->detwinned-martensite phase diagram of
+% the super-elastic regime (T0 above Af). Taken from Loss/SE_pre-strain/myfun.m; the
+% 42 positional arguments are now fields of prm (unpacked with their ORIGINAL names).
 global KFF CFF tt yy xisp xisp0 indp_old indm_old sigma_old s p1 m1
 global epsyylon xysp LF sigma0 epsilon0
+persistent last_print
+Ea = prm.Ea; Emp = prm.Emp; ssp = prm.ssp; sfp = prm.sfp; eps_Lp = prm.eps_Lp; b = prm.b;
+Extr = prm.Extr; Extr_tr = prm.Extr_tr; csi = prm.csi; y = prm.y; B = prm.B; N = prm.N;
+BB11 = prm.BB11; BB12 = prm.BB12; BB13 = prm.BB13; BB14 = prm.BB14;
+BB21 = prm.BB21; BB22 = prm.BB22; BB23 = prm.BB23; BB24 = prm.BB24;
+BB31 = prm.BB31; BB32 = prm.BB32; BB33 = prm.BB33; BB34 = prm.BB34;
+BB41 = prm.BB41; BB42 = prm.BB42; BB43 = prm.BB43; BB44 = prm.BB44;
+Temp0 = prm.Temp0; ssmart = prm.ssmart; sfmart = prm.sfmart; ssaus = prm.ssaus; sfaus = prm.sfaus;
+As = prm.As; Af = prm.Af; CAp = prm.CAp; p = prm.p; eps0 = prm.eps0;
+f_ref = prm.f_ref;                 % was hard-coded 21 [Hz]
+LF_offset = prm.LF_offset;         % was hard-coded +0.015
+sigma_rev = prm.sigma_rev;         % was hard-coded 120 [MPa]
 if nargin < 3 || isempty(flag)
     % VARIABLES UPDATE AND EVALUATION
     tt = [tt T];
     yy = [yy X];
     % DISPLACEMENT FIELD
-    XA = [X(31:60);zeros(2,1)];
+    XA = [X(2*N-1:end);zeros(2,1)];   % was X(31:60) for N=16
     X_k = zeros(4*(N-1),1);
     for k = 1:N-1
         X_k(4*(k-1)+1:4*k,1) = Extr(:,:,k) * XA;
@@ -37,9 +54,10 @@ if nargin < 3 || isempty(flag)
     indp_old = indp; indm_old = indm;
     
     sigmas = sigma_i;
-    dF = zeros(750,1);
+    dF = zeros(size(xisp));
     Dxisp = zeros(size(xisp));
-    while ~isempty(indp) && ~isempty(indm)
+    % (same && vs || question as in myfun.m, see KNOWN_ISSUES.md #1)
+    while newton_active(indp,indm,prm.newton_or) && i < prm.newton_maxit
         % MARTENSITIC FRACTIONS
         xisp(indp) = (1-cos(pi*(sigma_i(indp)-ssmart)/(sfp-ssp)))/2 + xisp0(indp).*(1+cos(pi*(sigma_i(indp)-ssmart)/(sfp-ssp)))/2;
         xisp(indm) = xisp0(indm)/2 .* (cos(pi*(Temp0-As-sigma_i(indm)/CAp)/(Af-As))+1);
@@ -88,13 +106,21 @@ if nargin < 3 || isempty(flag)
     xysp = [xysp , xisp];
     s = [s , sigma_i];
     sigma_old = sigma_i;
-    fprintf('t = %f [s] ', T)
-    fprintf('i = %i [s] \n', i)
+    if prm.verbose
+        fprintf('t = %f [s] ', T)
+        fprintf('i = %i [s] \n', i)
+    else
+        if isempty(last_print) || T < last_print, last_print = -1; end
+        if T - last_print >= 0.05
+            last_print = T;
+            fprintf('  t = %.3f s\n', T);
+        end
+    end
     if any(ex_indp)~=0 || any(ex_indm)~=0
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% NEW DAMPING %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        LF(ex_indp) = polyval(p,sigma_i(ex_indp))+0.015;
-        LF(ex_indm) = polyval(p,120 - sigma_i(ex_indm))+0.015;
-        C_d = C_tot .* LF / (2*pi*21);
+        LF(ex_indp) = polyval(p,sigma_i(ex_indp))+LF_offset;
+        LF(ex_indm) = polyval(p,sigma_rev - sigma_i(ex_indm))+LF_offset;
+        C_d = C_tot .* LF / (2*pi*f_ref);
         C_dk = reshape(C_d,length(y),length(csi),N-1);
         C_k = zeros(4,4,N-1);
         for k = 1:N-1
@@ -121,12 +147,21 @@ if nargin < 3 || isempty(flag)
 else
     switch(flag)
         case 'init'
-            fprintf('start\n');
+            if prm.verbose, fprintf('start\n'); end
             tt = T(1);
             yy = X;
         case 'done'
-            fprintf('done\n');
+            if prm.verbose, fprintf('done\n'); end
     end
     status = 0;
+end
+end
+
+function go = newton_active(indp,indm,use_or)
+% use_or = false -> ORIGINAL behaviour (&&); true -> experimental fix (||)
+if use_or
+    go = ~isempty(indp) || ~isempty(indm);
+else
+    go = ~isempty(indp) && ~isempty(indm);
 end
 end
