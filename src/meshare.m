@@ -1,6 +1,11 @@
-function meshare(epsyylon,xysp,xysm,xyT,t)
-L = 1000;
-y = linspace(10,-10,10)';
+function meshare(epsyylon,xysp,xysm,xyT,t,thick,L)
+% MESHARE  strain and martensite-fraction fields (xi_s+, xi_s-, xi_T) over the beam at the LAST
+% time step (thesis Fig. 'Simulazione_lunga'). Needs third_party/smooth2a.m.
+% [2026 cleanup] thick / L are now arguments (default 20 / 1000 as in the original, which
+% hard-coded the 30x20 mm section; the base beam is 15x10 mm -> pass 10).
+if nargin < 6, thick = 20; end
+if nargin < 7, L = 1000; end
+y = linspace(thick/2,-thick/2,10)';
 for ind = length(xysp(1,:))
     epsilones = reshape(epsyylon(:,ind),length(y),[]);
     epsiloness = smooth2a(epsilones,1,8); 
@@ -14,7 +19,7 @@ for ind = length(xysp(1,:))
     x = linspace(0,L,length(epsilones(1,:)))';
     [X,Y] = meshgrid(x,y);
     xx = linspace(0,L,400);
-    yy = linspace(10,-10,200);
+    yy = linspace(thick/2,-thick/2,200);
     [xx,yy]=meshgrid(xx,yy);
     epsilonesi = interp2(X,Y,epsiloness,xx,yy);
     xipi = interp2(X,Y,xips,xx,yy);
@@ -48,7 +53,7 @@ for ind = length(xysp(1,:))
     h = colorbar;
     ylabel(h, '\xi_s^+')
     set(h, 'Fontsize', 10)
-    hTitle = title('t = 0.8');
+    hTitle = title(sprintf('t = %.3g s', t(end)));   % [2026] was the fixed text 't = 0.8'
     set(hTitle, 'Fontsize', 14)
     subplot(3,1,2)
     mesh(xx,yy,ximi)

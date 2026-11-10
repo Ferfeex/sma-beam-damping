@@ -17,11 +17,12 @@ function res = run_case(c, varargin)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
 %     'newton_or'   true = use || in the Newton loop condition (KNOWN_ISSUES.md #1)
 %     'verbose'     true = original per-step printout
+%     'plot_fields' true = also plot strain / martensite fractions over the beam at the end (src/meshare.m)
 %
 %   Returns res with fields TT, XX, midspan, runtime_s, cfg, peaks (time, height).
 setup_paths();
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'newton_or',[],'verbose',[]);
+    'save_mat',true,'newton_or',[],'verbose',[],'plot_fields',false);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -35,11 +36,17 @@ else
     cfg = c;
 end
 if ~isempty(opt.Tf),        cfg.time.Tf = opt.Tf; end
-if ~isempty(opt.newton_or), cfg.numerics.newton_or = opt.newton_or; end
+if ~isempty(opt.newton_or)
+    cfg.numerics.newton_or = opt.newton_or;
+    if opt.newton_or && isinf(cfg.numerics.newton_maxit), cfg.numerics.newton_maxit = 100; end   % cap, see KNOWN_ISSUES.md #1
+end
 if ~isempty(opt.verbose),   cfg.numerics.verbose = opt.verbose; end
+if opt.plot_fields,         cfg.post.keep_fields = true; end
 
 if ~strcmp(cfg.model,'linear')
-    d = load(fullfile(root,'data',cfg.p_file));   % polynomial p of the loss factor
+    pf = cfg.p_file;
+    if ~exist(pf,'file'), pf = fullfile(root,'data',pf); end
+    d = load(pf);                                  % polynomial p of the loss factor
     cfg.p = d.p;
 end
 
@@ -75,6 +82,17 @@ if ~strcmp(opt.figures,'none')
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         fn = fullfile(opt.outdir, [cfg.name '_midspan.png']);
         print(f,'-dpng','-r110',fn); close(f);
+        fprintf('figure: %s\n', fn);
+    end
+end
+if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase')
+    ff = res.fields;
+    if strcmp(opt.figures,'save'), figure('visible','off'); end
+    meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L);
+    if strcmp(opt.figures,'save')
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        fn = fullfile(opt.outdir, [cfg.name '_fields.png']);
+        print('-dpng','-r110',fn); close(gcf);
         fprintf('figure: %s\n', fn);
     end
 end

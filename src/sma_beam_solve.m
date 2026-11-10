@@ -46,7 +46,11 @@ nip = (N-1)*numel(csi)*numel(y);        % integration points (750 for N=16)
 % ---- optional extra layers (composite: GFRP core + SMA layers) ----
 MFF_ADD = zeros(size(MFF));  KFF_ADD = zeros(size(MFF));  CFF_ADD = zeros(size(MFF));
 if isfield(cfg,'hle') && ~isempty(cfg.hle)
-    hle = composite_matrices(cfg.hle);
+    if isfield(cfg.hle,'matrices_file') && ~isempty(cfg.hle.matrices_file)
+        hle = load(cfg.hle.matrices_file);     % e.g. the 2020 Matrices.mat (used by the tests)
+    else
+        hle = composite_matrices(cfg.hle);
+    end
     MFF_ADD = hle.MFF_HLE;  KFF_ADD = hle.KFF_HLE;  CFF_ADD = hle.CFF_HLE;
 end
 MFF = MFF + MFF_ADD;
