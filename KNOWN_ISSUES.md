@@ -1,41 +1,38 @@
 # Known issues of the original (2020) code
 
 Found while reading, porting and cleaning the code. "Status" says what was done about each one.
-Nothing here changes the default results of the base case.
+Only #1 (the Newton loop condition) changes the numerical results, by < 1 %; everything else is documentation of problems in files that were archived or left as they were.
 
-## 1. Suspected `&&` slip in the Newton loop (`src/myfun.m`, `src/myfun_SE.m`)
+## 1. `&&` slip in the Newton loop (`src/myfun.m`, `src/myfun_SE.m`) - FIXED (approved by the author)
 
 ```matlab
-while ~isempty(indp) && ~isempty(indm)      % original
+while ~isempty(indp) && ~isempty(indm)      % 2020 original
+while (~isempty(indp) || ~isempty(indm)) && i < prm.newton_maxit      % now
 ```
 
-`indp` = integration points that are in the tension transformation zone, `indm` = points in the
-compression zone. With `&&` the Newton iteration **runs only while both sets are non-empty**, and it
-**stops as soon as either set has converged**, even if the other one has not. If only one set is
-active at a time step (for instance only tension zones), the martensite fractions of those points are
-not updated at all in that step. An `||` ("while any point still has to converge") looks like the
-intended condition.
+`indp` = integration points in the tension transformation zone, `indm` = points in the compression zone.
+With the original `&&` the Newton iteration **ran only while both sets were non-empty**, and **stopped as soon as
+either set had converged**, even if the other had not. If only one set is active at a time step, the martensite
+fractions of those points were not updated in that step. `||` ("iterate while any point still has to
+converge") is the evident intent. **The 2020 code, and therefore the results produced for the thesis, used `&&`.**
 
-**Status: reported, NOT changed.** The default is the original `&&` (so all results are the original
-ones); the `||` version is an opt-in flag, `run_case('base','newton_or',true)` (with an iteration cap of
-100 so that a non-converging point cannot hang the loop).
+**Status: corrected and made the default** (the `&&` option no longer exists; `prm.newton_maxit = 100` caps the
+iterations so that a non-converging point cannot hang the loop). `tests/run_tests.m` compares the new code with
+the original scripts after patching only this line in the copy of the original.
 
-**Before / after, full base case (0.8 s, same Octave, same integrator):**
+**Effect, full 0.8 s base case (same Octave, same integrator):**
 
-| | original `&&` | `\|\|` fix |
+| | original `&&` | `\|\|` (now) |
 |---|---|---|
 | solver steps | 4320 | 4883 |
-| run time | 370 s | 431 s |
+| run time (indicative, machine load differed) | 370 s | 431 s |
 | mid-span peaks [mm] | 7.087, 5.494, 4.155, 3.076, 2.239, 1.611, 1.147, 0.811 | 7.087, 5.490, 4.149, 3.075, 2.241, 1.612, 1.150, 0.814 |
 | peak times [s] | 0, .1105, .2203, .3287, .4371, .5441, .6510, .7562 | 0, .1104, .2200, .3288, .4367, .5428, .6499, .7570 |
 | max difference of the mid-span curve | | 0.058 mm (0.8 % of the 7.09 mm amplitude), rms 0.013 mm |
 
-(Run times were measured under different machine load, so they are indicative only.)
-
-So the effect on the result is tiny (peak heights differ by <= 0.006 mm), of the same size as the
-differences that a different step sequence causes anyway, but `||` needs ~13 % more steps. The
-conclusion for the thesis does not change; it is Federico's call whether to adopt `||`.
-(The composite and the other cases were not re-run with `||`.)
+Peak heights differ by <= 0.006 mm; the thesis conclusions are unaffected, but `||` needs ~13 % more steps.
+To reproduce the original numbers exactly, replace the `||` inside the parentheses by `&&` in `src/myfun.m` and `src/myfun_SE.m` (the results of the original
+`&&` runs are quoted above).
 
 ## 2. `Condizioni_iniziali_unforced.m` uses an undefined variable (`XA`)
 It defines `X0s` and then uses `XA`. Cannot run as stored. It builds the initial vector of the old
@@ -77,7 +74,8 @@ by hand, and differs ~12 % from what the script computes. The main path does not
 * `Brinson/Prova_zone.m` calls `Zone` with the wrong number of arguments; `Zone_simpl.m` has a syntax
   error (`phase 'MD3n'`); `Prestrain_epsilon.m` has an index error. All three are in `archive/brinson_unfinished/`.
 * `meshare.m` had the 30 x 20 mm section hard-coded and the fixed title `t = 0.8`; both are now
-  arguments / computed (the base beam is 15 x 10 mm).
+  arguments / computed (the base beam is 15 x 10 mm). It used the third-party `smooth2a.m` (Greg Reeves 2009, no licence);
+  replaced by `src/smooth_mean2d.m` (same result to 4e-16).
 * The base case has b = 15, t = 10 mm while most other cases use b = 30, t = 20 mm (see `cases/`).
 * The reference frequency `f_ref` (10 / 14.5 / 18 / 19 / 21 Hz) had to be edited by hand in two files
   (`FEM1D.m` and `myfun.m`); it is now one parameter (`cfg.damping.f_ref`).

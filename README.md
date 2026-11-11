@@ -46,7 +46,7 @@ energy in the martensite re-orientation.*
 
 ```octave
 cd sma-beam-damping
-run_case('base')                    % ~6 min: free vibration, prints the ring-down peaks, saves a figure
+run_case('base')                    % ~7 min: free vibration, prints the ring-down peaks, saves a figure
 run_case('base','compare_hle',true) % ... and overlays the linear reference (the figure above)
 run_case('composite')               % ~1 min: GFRP/SMA/GFRP sandwich
 run_case('base','Tf',0.1)           % quick look: shorten the duration
@@ -63,7 +63,7 @@ visually the same as in MATLAB but not bit-identical.
 
 | `run_case(...)` | What | Runtime in Octave (1 core) |
 |---|---|---|
-| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~6 min (333 s measured, 4300 steps) |
+| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~7 min (430 s measured, 4900 steps) |
 | `'hle_linear'` | Linear reference beam, E = 26 GPa, Rayleigh 1.3 % | 2 s |
 | `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~1 min (53 s) |
 | `'linear_pulse_incremental'`, `'linear_pulse_rectangular'` | Linear GFRP beam under a ramp / rectangular load pulse | 17 s |
@@ -84,14 +84,14 @@ maximum):
 
 | peak | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
-| t [s] | 0 | 0.110 | 0.220 | 0.329 | 0.437 | 0.544 |
-| height [mm] | 7.09 | 5.49 | 4.16 | 3.08 | 2.24 | 1.61 |
+| t [s] | 0 | 0.110 | 0.220 | 0.329 | 0.437 | 0.543 |
+| height [mm] | 7.09 | 5.49 | 4.15 | 3.07 | 2.24 | 1.61 |
 
 (The ratio of successive peaks, ~0.76, is what the loss factor controls; peaks 2-6 are the
 values of thesis Fig. 4.3: about 5.5, 4.15, 3.1, 2.2, 1.6 mm.)
 
 The sandwich beam (`run_case('composite')`, GFRP skins around the SMA core) rings down more slowly
-than the pure SMA beam (the SMA is only part of the structure): peaks 7.05, 6.24, 5.50, 4.81, 4.19, 3.63 mm
+than the pure SMA beam (the SMA is only part of the structure): peaks 7.05, 6.25, 5.50, 4.81, 4.19, 3.63 mm
 (`docs/composite_midspan.png`).
 
 The strain and martensite-fraction fields over the beam can be plotted with
@@ -116,14 +116,15 @@ src/                    the solver
   linear_beam_solve.m   linear beam with Rayleigh damping (reference and linear pulses)
   composite_matrices.m  matrices of the GFRP skins (was Composite_matrices.m + hand-saved Matrices.mat)
   initial_velocity.m    initial half-sine velocity field
-  meshare.m             field plots (needs third_party/smooth2a.m)
+  meshare.m             field plots (optional)
+  smooth_mean2d.m       moving-average smoothing used by meshare.m
 brinson/                material level (thesis chapter 2): Brinson model, phase diagram, super-elasticity,
                         Tension_compression_parametric.m (the loss-factor fit), Brinson_validation.m ...
 data/                   p.mat (loss-factor polynomial, original), p_SE.mat (super-elastic one)
 compat/octave/          ode23t stand-in for Octave
-third_party/            smooth2a.m (Greg Reeves 2009) - see THIRD_PARTY.md
 tests/                  run_tests.m: refactored code vs the original 2020 scripts
 tools/                  make_loss_factor_figure.m
+LICENSE                 MIT
 docs/                   figures; CODE_MAP_original_analysis.md = the original code map (before the cleanup)
 archive/                older attempts (not maintained), see archive/README.md
 CLEANUP_REPORT.md       what was kept / moved / removed / changed, and the verification
@@ -147,7 +148,9 @@ A force pulse: `cfg = case_pulse(); cfg.load.F_element = -50;` (nodal force per 
 
 To regenerate the loss-factor curve instead of using the shipped one:
 `run('brinson/Tension_compression_parametric.m')` writes `results/p_regen.mat`, then
-`cfg.p_file = fullfile('results','p_regen.mat')`. (Differences: see `CLEANUP_REPORT.md`.)
+`cfg.p_file = fullfile('results','p_regen.mat')`. This is an alternative only: the default stays the author's
+original `data/p.mat`, which matches the thesis best (the regenerated curve is lower at small strain, see
+`CLEANUP_REPORT.md` and `docs/loss_factor_fit.png`).
 
 ## Tests
 
@@ -164,8 +167,8 @@ run_tests('full')              % + the full base and composite runs, peaks versu
 * The two slow cases (`pulse`, `prestrain_se`) take hours in Octave.
 * The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
   a MATLAB run (a MATLAB run of the original code was not available).
-* Suspected bug in the Newton loop (`&&` instead of `||`) and several smaller issues of the
-  original code are described in `KNOWN_ISSUES.md`.
+* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; the cleaned code uses `||`
+  (effect on the results < 1 %, see `KNOWN_ISSUES.md` #1). Several smaller issues of the original are listed there too.
 * The force term of the linear transient case was lost in the original files and is inferred.
 
 ## Roadmap
@@ -195,7 +198,5 @@ run_tests('full')              % + the full base and composite runs, peaks versu
 
 ## Licence
 
-**No licence has been chosen yet** (without one, nobody else may legally reuse the code). Federico
-needs to pick one before publishing; for scientific code a short permissive licence such as
-**MIT** or **BSD-3-Clause** is the usual choice. `third_party/smooth2a.m` has its own terms, see
-`THIRD_PARTY.md`.
+MIT, see `LICENSE` (Copyright (c) 2026 Federico Aghito). The code contains no third-party code
+(the optional field plots use an own moving-average, `src/smooth_mean2d.m`).

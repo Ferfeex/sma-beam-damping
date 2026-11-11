@@ -1,5 +1,18 @@
 # CLEANUP REPORT
 
+> **Update of 11 Nov 2026 (after Federico's review, approved changes).** (1) The Newton loop now uses `||` by default
+> (the 2020 original used `&&`; effect on the results 0.8 %, see section 4); the `newton_or` option is gone.
+> (2) The author's original `data/p.mat` stays the default; the regenerated loss-factor curve is documented as an
+> alternative only. (3) `smooth2a.m` (third party, no licence) was replaced by an own conv2 moving average,
+> `src/smooth_mean2d.m` (identical to 4e-16); `third_party/` and `THIRD_PARTY.md` were deleted.
+> (4) `LICENSE` added: MIT, Copyright (c) 2026 Federico Aghito. (5) The cleaned tree was uploaded to the Google Drive
+> folder and the old originals were moved to the Drive trash (see the final message / Drive folder). Sections 1-6
+> below were written before this update; where they differ, this box and the sections marked *(updated)* win.
+> New numbers with `||`: base peaks 7.09 / 5.49 / 4.15 / 3.07 / 2.24 / 1.61 / 1.15 / 0.81 mm (4883 steps, 147 restarts);
+> composite peaks 7.05 / 6.25 / 5.50 / 4.81 / 4.19 / 3.63 / 3.13 / 2.69 mm (1162 steps). The equivalence tests against
+> the original scripts now run the original with only that one `&&` -> `||` patch (`tests/run_original.m`).
+> **Open questions 1, 2 and 3 of section 6 are resolved** (MIT + own smoother; `||`; original `p.mat`).
+
 Cleanup of Federico Aghito's master's-thesis code (SMA beam vibration / damping) into a
 repository-ready folder that runs in GNU Octave 10.3. Done on the night of 10 Nov 2026,
 autonomously, on a copy; **nothing was pushed or published, there is no remote, and the
@@ -9,6 +22,8 @@ Inputs (read-only): `/workspace/thesis-code/` (download of the Drive folder, 202
 `/workspace/thesis-octave/` (earlier working Octave port, `OCTAVE_PORT_LOG.md`).
 
 ## 1. Result in one paragraph
+
+*(Written for the `&&` version of 10 Nov. Since 11 Nov the default is `||`: the bit-identical statements below hold against the original with `&&`; with `||` the tests compare against the original patched in that one place. New peaks: see the box at the top.)*
 
 The final method (`Loss/FEM1D.m` + `myfun.m` + `fun_ode_1D.m`, which existed as six near-identical
 copies, one per case study) is now **one solver** (`src/sma_beam_solve.m`) driven by **parameter files**
@@ -23,7 +38,7 @@ mid-span ring-down peaks **7.09 (t = 0), 5.49, 4.15, 3.08, 2.24, 1.61 mm** - pea
 
 | | before (thesis-code, local copy) | after (`sma-beam-damping`, git-tracked) |
 |---|---|---|
-| files | 202 (of 214 on the Drive) | 133 tracked files |
+| files | 202 local (285 files in 24 folders on the Drive, inventory in `drive-thesis-inventory-before.json`) | FILECOUNT tracked files |
 | size | 66 MB local (~996 MB on the Drive) | 0.9 MB (+ 1.8 MB `.git`, which holds the commit history and PNGs) |
 | `.m` files | 114 (94 distinct, 20 byte-identical copies) | 113: 34 working code (incl. 8 case files, tests, tools), 65 archived older attempts, 14 unmodified originals kept for diffing (`archive/original_case_scripts`) |
 | `.mat` files | 61 (up to 168 MB each) | 5 (all < 1 KB: `p.mat`, `p_SE.mat`, reference matrices, one archived `KFF.mat`+`p.mat`) |
@@ -47,7 +62,7 @@ mid-span ring-down peaks **7.09 (t = 0), 5.49, 4.15, 3.08, 2.24, 1.61 mm** - pea
   still on line 76, byte for byte, file untouched except encoding/line endings**), `MyModel.m`, `Phasediagram.m`,
   `SuperElasticity.m`, `TC_parametri_paper.m`, `Red_ampl_range.m` (purpose unclear but it runs).
 * **`data/`** - the author's original `p.mat` (default) and `p_SE.mat`.
-* `compat/octave/ode23t.m` (stand-in, Octave only), `third_party/smooth2a.m` (with `THIRD_PARTY.md`).
+* `compat/octave/ode23t.m` (stand-in, Octave only), `src/smooth_mean2d.m` (own moving average replacing the third-party `smooth2a.m`, which was removed on 11 Nov).
 
 ### Moved to `archive/` (not maintained, see `archive/README.md`)
 `ODE_NEWT/` (first Newton/fsolve approach), `Mod/` (DAE with `ode15s`), the root DAE files and scratch (`FEM_NL.m`,
@@ -87,7 +102,8 @@ Only `.m` sources were archived (plus 2 tiny `.mat` of `xiT0nullo`).
 | restart-loop safety cap (`max_restarts`) and progress printing every 0.05 s of simulated time (original printed every step) | avoid endless loops / 4800-line logs | none |
 | `Tension_compression_parametric.m`: `eps_upp = 0.001:0.001:0.025`, `eps_L = 0.016/-0.0146`, saves `results/p_regen.mat`, never overwrites `data/p.mat` | the stored version could not produce `p.mat` | affects only the regenerated `p` |
 | `meshare.m`: section thickness and length are arguments; title shows the real time | the 30 x 20 mm section and `t = 0.8` were hard-coded | plotting only |
-| `Newton` loop condition: `&&` kept as default, `||` available as an opt-in flag | see KNOWN_ISSUES #1 | default identical |
+| `Newton` loop condition: `&&` -> `||` (default, approved 11 Nov; the `newton_or` flag was removed; `prm.newton_maxit = 100` caps the loop) | see KNOWN_ISSUES #1 | peaks change by <= 0.006 mm, curve by <= 0.8 % |
+| `smooth2a.m` -> `smooth_mean2d.m` (conv2 moving average, 11 Nov) | third-party code without licence | identical to 4e-16 (plot only) |
 
 **Not changed:** all physics and numerics of the main method, variable names, Italian comments.
 
@@ -98,7 +114,7 @@ points in BOTH a tension and a compression transformation zone and stops when ei
 like the intent. Not silently changed. Full 0.8 s base case, `&&` versus `||`: peaks 7.087 / 5.494 / 4.155 / 3.076 /
 2.239 / 1.611 versus 7.087 / 5.490 / 4.149 / 3.075 / 2.241 / 1.612 mm; max difference of the whole mid-span
 curve 0.058 mm (0.8 %); `||` needs 4883 instead of 4320 steps (~13 % more). The effect is negligible for the thesis
-conclusions. Federico decides whether to adopt it (`run_case('base','newton_or',true)`).
+conclusions. **Decision (11 Nov): adopted as the default.** The original `&&` results are quoted here and in KNOWN_ISSUES #1; to reproduce them exactly, change `||` back to `&&` inside the parentheses in `src/myfun.m` / `src/myfun_SE.m`.
 
 ## 5. Verification
 
@@ -112,7 +128,9 @@ conclusions. Federico decides whether to adopt it (`run_case('base','newton_or',
 | Short runs vs the **unmodified original scripts** run in a child Octave (`tests/run_tests.m`): base Tf=0.03 (581 steps), pulse Tf=0.025 (1912 steps, covers the ramp and the 0.02 s release), pre-strain SE Tf=0.02 (170 steps), composite Tf=0.03 | **all difference 0** (composite: 0 with the original `Matrices.mat`, 1.9e-9 relative with recomputed ones) |
 | Same case twice in one Octave session | identical (globals are reset) |
 | Regenerated loss-factor fit (`Tension_compression_parametric.m`) vs the original `data/p.mat` | regenerated `p` agrees with the original within 0.001-0.003 for strain >= 0.3 %, lower at small strain (0.119 vs 0.137 at 0.06 %) |
-| `tests/run_tests('full')` (final state of the repo) | **all 9 checks passed** (quick checks above + full base run peaks 7.09/5.49/4.15/3.08/2.24/1.61 mm + full composite run, 44 s) |
+| `tests/run_tests('full')` (final state of the repo) | **all 9 checks passed** (quick checks above + full base run peaks 7.09/5.49/4.15/3.07/2.24/1.61 mm (with `||`) + full composite run, 44 s) |
+
+*(Updated 11 Nov, with `||`)*: `tests/run_tests('full')` compares the cleaned code (`||`) against the unmodified originals patched only in the Newton `while` line, again with difference 0 on the short runs (all 9 checks of `tests/run_tests('full')` pass). Full base run: 4883 steps, 147 restarts, peaks 7.09 / 5.49 / 4.15 / 3.07 / 2.24 / 1.61 / 1.15 / 0.81 mm; full composite run: 1162 steps, peaks 7.05 / 6.25 / 5.50 / 4.81 / 4.19 / 3.63 / 3.13 / 2.69 mm. The field plot (`plot_fields`) works with `smooth_mean2d` (`docs/fields_example.png`).
 
 Runtimes in Octave (1 core): base ~370 s (333 s alone), composite ~53-80 s, `hle_linear` 2 s, linear pulses 10-17 s.
 **Not verified:** full runs of `pulse` and `prestrain_se` (hours; only the shortened runs above), anything in MATLAB
@@ -120,9 +138,9 @@ Runtimes in Octave (1 core): base ~370 s (333 s alone), composite ~53-80 s, `hle
 `archive/` code.
 
 ## 6. Open questions for Federico
-1. **Licence**: none chosen (README says so). MIT or BSD-3-Clause? Is `smooth2a.m` (Greg Reeves 2009, no licence) acceptable in a public repo, or replace/drop it (only needed for the optional field plot)?
-2. **`&&` vs `||`** in the Newton loop: keep the original behaviour (default) or switch? Effect ~0.8 % on the curve.
-3. **p.mat**: keep the original hand-saved curve (default, matches the thesis best) or the regenerated one (lower at small strain)? Do you remember the amplitude set you used?
+1. ~~Licence~~ **resolved 11 Nov: MIT** (`LICENSE`); `smooth2a.m` replaced by an own moving average.
+2. ~~`&&` vs `||`~~ **resolved 11 Nov: `||` is the default** (effect ~0.8 % on the curve).
+3. ~~p.mat~~ **resolved 11 Nov: the original `p.mat` stays the default**; the regenerated curve is an alternative only.
 4. **Linear transient force term** was lost; is the inferred `M a = -K u - C v + F` right, and what were the exact loads of thesis Figs 3.21/3.23 (stored files: 50 N ramp, 37.5 N rectangular; the SMA `Transient` case has 200 N)?
 5. Which archived variants (`Furbo_Pre`, `xiT0nullo`) correspond to which thesis figure (Fig. 3.20?) - should they become cases?
 6. Do you want the original `.fig` files, thesis figures or the large result files in the repo (e.g. via Git LFS or a release), or only code?
