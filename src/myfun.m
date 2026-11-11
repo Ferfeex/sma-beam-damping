@@ -77,12 +77,12 @@ if nargin < 3 || isempty(flag)
     sigmas = sigma_i;
     dF = zeros(size(xisp));   % was zeros(750,1): (N-1)*5*10 integration points
     Dxisp = zeros(size(xisp)); Dxism = zeros(size(xism)); DxiT = zeros(size(xiT));
-    % NOTE (see KNOWN_ISSUES.md #1): the original loop condition is
+    % NOTE (see KNOWN_ISSUES.md #1): the 2020 original had
     %     while ~isempty(indp) && ~isempty(indm)
-    % i.e. Newton only runs while BOTH a tension zone and a compression zone are active,
-    % and it stops as soon as one of the two sets has converged. The opt-in
-    % prm.newton_or = true uses || instead (with an iteration cap).
-    while newton_active(indp,indm,prm.newton_or) && i < prm.newton_maxit
+    % i.e. Newton ran only while BOTH a tension and a compression zone were active and stopped as soon
+    % as one of the two sets had converged. Corrected (2026, approved by the author) to ||: iterate while
+    % ANY point still has to converge. The cap prm.newton_maxit protects against a non-converging point.
+    while (~isempty(indp) || ~isempty(indm)) && i < prm.newton_maxit
         % MARTENSITIC FRACTIONS
         xisp(indp) = 1/2 * (1-cos(pi*(sigma_i(indp)-ssp)/(sfp-ssp))) + (xisp0(indp)/2) .* (1+cos(pi*(sigma_i(indp)-ssp)/(sfp-ssp)));
         xiT(indp) = xiT0(indp) .* ((1 - xisp(indp))./(1 - xisp0(indp)));
@@ -191,15 +191,5 @@ else
             if prm.verbose, fprintf('done\n'); end
     end
     status = 0;
-end
-end
-
-function go = newton_active(indp,indm,use_or)
-% Loop condition of the Newton iteration.
-% use_or = false -> ORIGINAL behaviour (&&); true -> experimental fix (||)
-if use_or
-    go = ~isempty(indp) || ~isempty(indm);
-else
-    go = ~isempty(indp) && ~isempty(indm);
 end
 end

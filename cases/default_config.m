@@ -62,8 +62,7 @@ cfg.solver.AbsTol       = [];
 cfg.solver.max_restarts = 1e6;
 
 % ---- numerics -------------------------------------------------------------------------------------------------
-cfg.numerics.newton_or    = false;  % false = ORIGINAL (&&) loop condition; true = experimental (||), see KNOWN_ISSUES.md
-cfg.numerics.newton_maxit = Inf;    % iteration cap (only meaningful with newton_or = true)
+cfg.numerics.newton_maxit = 100;    % cap on the Newton iterations per step (the loop runs while ANY point has not converged, || - see KNOWN_ISSUES.md #1)
 cfg.numerics.verbose      = false;  % true = original per-step printout
 
 % ---- post-processing --------------------------------------------------------------------------------------------

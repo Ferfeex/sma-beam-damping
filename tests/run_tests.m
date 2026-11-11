@@ -6,7 +6,8 @@ function ok = run_tests(mode)
 %
 % What is compared: the refactored solver (run_case / sma_beam_solve) against the unmodified
 % original scripts in archive/original_case_scripts/, both run with the same shortened Tf and
-% the same Octave ode23t stand-in. Equal to round-off = the numerics of the main method are unchanged.
+% the same Octave ode23t stand-in; the copy of the original is patched ONLY in the Newton loop
+% condition (&& -> ||, KNOWN_ISSUES.md #1). Equal to round-off = the numerics of the main method are unchanged.
 if nargin < 1, mode = 'quick'; end
 root = fileparts(fileparts(mfilename('fullpath')));
 addpath(root); setup_paths(); addpath(fileparts(mfilename('fullpath')));
@@ -64,7 +65,7 @@ if strcmp(mode,'full')
     % 7. full base case: peaks vs thesis Fig. 4.3 and the stored reference run of the Octave port
     r = run_case('base','figures','save','save_mat',false);
     pk = r.peaks(:,2)';
-    expect = [7.09 5.49 4.16 3.08 2.24 1.61];
+    expect = [7.09 5.49 4.15 3.08 2.24 1.61];   % with the corrected (||) Newton loop; the original && gave 5.494 / 4.155 / 3.076
     check('base full run: ring-down peaks', numel(pk) >= 6 && all(abs(pk(1:6)-expect) < 0.02), ...
         sprintf('peaks [mm]: %s (expected %s; thesis Fig. 4.3: ~5.5 4.15 3.1 2.2 1.6 after the first)', mat2str(pk(1:min(6,end)),3), mat2str(expect)));
     r = run_case('composite','figures','save','save_mat',false);

@@ -15,6 +15,15 @@ for k = 1:size(replace,1), txt = strrep(txt,replace{k,1},replace{k,2}); end
 fid = fopen(fullfile(tmp,'FEM1D.m'),'w'); fwrite(fid,txt); fclose(fid);
 for k = 1:size(support,1)
     copyfile(fullfile(root,support{k,1}), fullfile(tmp,support{k,2}));
+    if strcmp(support{k,2},'myfun.m')
+        % The ONLY intended difference between the 2020 original and the cleaned code: the Newton loop
+        % condition && -> || (KNOWN_ISSUES.md #1, approved by the author). Patch the copy of the original
+        % so that the comparison isolates the cleanup (everything else must be bit-identical).
+        f = fullfile(tmp,'myfun.m'); t = fileread(f);
+        t2 = strrep(t,'while ~isempty(indp) && ~isempty(indm)','while ~isempty(indp) || ~isempty(indm)');
+        if strcmp(t,t2), error('run_original: Newton loop line not found in %s', support{k,1}); end
+        fid = fopen(f,'w'); fwrite(fid,t2); fclose(fid);
+    end
 end
 fid = fopen(fullfile(tmp,'driver.m'),'w');
 fprintf(fid,'set(0,''defaultfigurevisible'',''off'');\naddpath(''%s'');\nFEM1D;\nsave(''-v7'',''orig_out.mat'',''TT'',''XX'');\n', fullfile(root,'compat','octave'));

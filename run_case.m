@@ -15,14 +15,13 @@ function res = run_case(c, varargin)
 %     'figures'     'save' (default, PNG in outdir) | 'show' | 'none'
 %     'outdir'      folder for figures/results (default <repo>/results, git-ignored)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
-%     'newton_or'   true = use || in the Newton loop condition (KNOWN_ISSUES.md #1)
 %     'verbose'     true = original per-step printout
 %     'plot_fields' true = also plot strain / martensite fractions over the beam at the end (src/meshare.m)
 %
 %   Returns res with fields TT, XX, midspan, runtime_s, cfg, peaks (time, height).
 setup_paths();
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'newton_or',[],'verbose',[],'plot_fields',false);
+    'save_mat',true,'verbose',[],'plot_fields',false);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -36,10 +35,6 @@ else
     cfg = c;
 end
 if ~isempty(opt.Tf),        cfg.time.Tf = opt.Tf; end
-if ~isempty(opt.newton_or)
-    cfg.numerics.newton_or = opt.newton_or;
-    if opt.newton_or && isinf(cfg.numerics.newton_maxit), cfg.numerics.newton_maxit = 100; end   % cap, see KNOWN_ISSUES.md #1
-end
 if ~isempty(opt.verbose),   cfg.numerics.verbose = opt.verbose; end
 if opt.plot_fields,         cfg.post.keep_fields = true; end
 

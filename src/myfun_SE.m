@@ -56,8 +56,8 @@ if nargin < 3 || isempty(flag)
     sigmas = sigma_i;
     dF = zeros(size(xisp));
     Dxisp = zeros(size(xisp));
-    % (same && vs || question as in myfun.m, see KNOWN_ISSUES.md #1)
-    while newton_active(indp,indm,prm.newton_or) && i < prm.newton_maxit
+    % (same correction as in myfun.m: || instead of the original &&, see KNOWN_ISSUES.md #1)
+    while (~isempty(indp) || ~isempty(indm)) && i < prm.newton_maxit
         % MARTENSITIC FRACTIONS
         xisp(indp) = (1-cos(pi*(sigma_i(indp)-ssmart)/(sfp-ssp)))/2 + xisp0(indp).*(1+cos(pi*(sigma_i(indp)-ssmart)/(sfp-ssp)))/2;
         xisp(indm) = xisp0(indm)/2 .* (cos(pi*(Temp0-As-sigma_i(indm)/CAp)/(Af-As))+1);
@@ -154,14 +154,5 @@ else
             if prm.verbose, fprintf('done\n'); end
     end
     status = 0;
-end
-end
-
-function go = newton_active(indp,indm,use_or)
-% use_or = false -> ORIGINAL behaviour (&&); true -> experimental fix (||)
-if use_or
-    go = ~isempty(indp) || ~isempty(indm);
-else
-    go = ~isempty(indp) && ~isempty(indm);
 end
 end
