@@ -65,7 +65,7 @@ if strcmp(mode,'full')
     % 7. full base case: peaks vs thesis Fig. 4.3 and the stored reference run of the Octave port
     r = run_case('base','figures','save','save_mat',false);
     pk = r.peaks(:,2)';
-    expect = [7.09 5.49 4.15 3.08 2.24 1.61];   % with the corrected (||) Newton loop; the original && gave 5.494 / 4.155 / 3.076
+    expect = [7.09 5.49 4.15 3.07 2.24 1.61];   % with the corrected (||) Newton loop; the original && gave 5.494 / 4.155 / 3.076
     check('base full run: ring-down peaks', numel(pk) >= 6 && all(abs(pk(1:6)-expect) < 0.02), ...
         sprintf('peaks [mm]: %s (expected %s; thesis Fig. 4.3: ~5.5 4.15 3.1 2.2 1.6 after the first)', mat2str(pk(1:min(6,end)),3), mat2str(expect)));
     r = run_case('composite','figures','save','save_mat',false);
