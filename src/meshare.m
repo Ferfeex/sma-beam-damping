@@ -1,6 +1,6 @@
 function meshare(epsyylon,xysp,xysm,xyT,t,thick,L)
 % MESHARE  strain and martensite-fraction fields (xi_s+, xi_s-, xi_T) over the beam at the LAST
-% time step (thesis Fig. 'Simulazione_lunga'). Needs third_party/smooth2a.m.
+% time step (thesis Fig. 'Simulazione_lunga'). Uses src/smooth_mean2d.m for smoothing.
 % [2026 cleanup] thick / L are now arguments (default 20 / 1000 as in the original, which
 % hard-coded the 30x20 mm section; the base beam is 15x10 mm -> pass 10).
 if nargin < 6, thick = 20; end
@@ -8,14 +8,14 @@ if nargin < 7, L = 1000; end
 y = linspace(thick/2,-thick/2,10)';
 for ind = length(xysp(1,:))
     epsilones = reshape(epsyylon(:,ind),length(y),[]);
-    epsiloness = smooth2a(epsilones,1,8); 
+    epsiloness = smooth_mean2d(epsilones,1,8); 
 %     ss = reshape(s(:,ind),length(y),[]);
     xip = reshape(xysp(:,ind),length(y),[]);
-    xips = smooth2a(xip,1,8);  
+    xips = smooth_mean2d(xip,1,8);  
     xim = reshape(xysm(:,ind),length(y),[]);
-    xims = smooth2a(xim,1,8);    
+    xims = smooth_mean2d(xim,1,8);    
     xit = reshape(xyT(:,ind),length(y),[]);
-    xits = smooth2a(xit,1,8);    
+    xits = smooth_mean2d(xit,1,8);    
     x = linspace(0,L,length(epsilones(1,:)))';
     [X,Y] = meshgrid(x,y);
     xx = linspace(0,L,400);

@@ -4,7 +4,6 @@ root = fileparts(mfilename('fullpath'));
 addpath(root);
 addpath(fullfile(root,'src'));
 addpath(fullfile(root,'cases'));
-addpath(fullfile(root,'third_party'));
 addpath(fullfile(root,'brinson'));
 % GNU Octave has no ode23t: add the stand-in ONLY under Octave so it never shadows MATLAB's.
 if exist('OCTAVE_VERSION','builtin') ~= 0
