@@ -38,7 +38,7 @@ mid-span ring-down peaks **7.09 (t = 0), 5.49, 4.15, 3.08, 2.24, 1.61 mm** - pea
 
 | | before (thesis-code, local copy) | after (`sma-beam-damping`, git-tracked) |
 |---|---|---|
-| files | 202 local (285 files in 24 folders on the Drive, inventory in `drive-thesis-inventory-before.json`) | FILECOUNT tracked files |
+| files | 202 local (285 files in 24 folders on the Drive, inventory in `drive-thesis-inventory-before.json`) | 132 tracked files |
 | size | 66 MB local (~996 MB on the Drive) | 0.9 MB (+ 1.8 MB `.git`, which holds the commit history and PNGs) |
 | `.m` files | 114 (94 distinct, 20 byte-identical copies) | 113: 34 working code (incl. 8 case files, tests, tools), 65 archived older attempts, 14 unmodified originals kept for diffing (`archive/original_case_scripts`) |
 | `.mat` files | 61 (up to 168 MB each) | 5 (all < 1 KB: `p.mat`, `p_SE.mat`, reference matrices, one archived `KFF.mat`+`p.mat`) |
