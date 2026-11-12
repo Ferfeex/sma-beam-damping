@@ -1,0 +1,62 @@
+flowchart LR
+  subgraph IN["1 · You type"]
+    SP["setup_paths.m<br/>adds folders to path"]
+    RC["run_case.m<br/>run_case('base')"]
+  end
+  subgraph CASES["2 · cases/ (parameter files)"]
+    DC["default_config.m<br/>all parameters, [MENU] fields"]
+    CB["case_base"]
+    CC["case_composite"]
+    CH["case_hle_linear"]
+    CP["case_pulse"]
+    CS["case_prestrain_se"]
+    CL["case_linear_pulse_*<br/>(incremental, rectangular)"]
+  end
+  subgraph DATA["data/"]
+    P["p.mat<br/>η(strain) fit"]
+    PSE["p_SE.mat<br/>η(stress) fit"]
+  end
+  subgraph SRC["3 · src/ (the engine)"]
+    SMA["sma_beam_solve.m<br/>SMA beam, one solver for all cases"]
+    LIN["linear_beam_solve.m<br/>linear reference beam"]
+    BB["build_beam.m<br/>15 elements, K, M"]
+    CM["composite_matrices.m<br/>GFRP/SMA/GFRP"]
+    IV["initial_velocity.m<br/>mode-1 start"]
+    RHS["fun_ode_1D.m<br/>equations of motion"]
+    MF["myfun.m<br/>Newton + stress reversal<br/>(after every step)"]
+    MSE["myfun_SE.m<br/>pre-strain version"]
+    PK["sma_peaks.m"]
+    MS["meshare.m<br/>field plot (optional)"]
+    SM["smooth_mean2d.m"]
+  end
+  subgraph OCT["compat/octave/"]
+    O23["ode23t.m → ode23s<br/>(Octave only)"]
+  end
+  subgraph BR["brinson/ (material, run separately)"]
+    TCP["Tension_compression_parametric.m"]
+    BV["Brinson_validation.m<br/>WINNER CAZZO 🏆"]
+    PRE["PrestrainSE.m"]
+    OTH["Brinson, MyModel, SuperElasticity,<br/>Phasediagram, Red_ampl_range, TC_parametri_paper"]
+  end
+  subgraph OUT["4 · Output"]
+    PLT["plots: mid-span displacement<br/>SMA vs linear"]
+    RES["results/<case>_result.mat"]
+  end
+  SP -.-> O23
+  RC --> CB & CC & CH & CP & CS & CL
+  CB & CC & CH & CP & CS & CL --> DC
+  RC -->|loads| P
+  RC -->|loads| PSE
+  RC -->|SMA cases| SMA
+  RC -->|linear cases| LIN
+  RC -->|reference curve| CH
+  SMA --> BB & CM & IV
+  SMA -->|ode23t / ode23s| RHS
+  SMA -->|OutputFcn| MF
+  SMA -->|OutputFcn| MSE
+  LIN --> BB & IV
+  RC --> PK & MS
+  MS --> SM
+  RC --> PLT & RES
+  TCP -.->|produced| P
+  PRE -.->|produced| PSE
