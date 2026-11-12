@@ -42,18 +42,48 @@ energy in the martensite re-orientation.*
   reference, a **GFRP / SMA / GFRP sandwich** beam, a forced pulse, and a pre-stressed super-elastic
   beam. Each case is a small parameter file in `cases/`.
 
-## Quick start (GNU Octave)
+## How to run (GNU Octave or MATLAB)
 
 ```octave
 cd sma-beam-damping
+setup_paths          % once per session: puts the folders on the path
+run_case             % opens the start window: choose the case, change p, tick the options, Run
+```
+
+`run_case` with no arguments (or `sma_gui`) opens a start window, so you never have to type the case name:
+
+![Start window](docs/gui_screenshot.png)
+
+* **Case list** with a description and the estimated runtime of each case. The two slow cases
+  (`pulse`, `prestrain_se`, hours in Octave) are flagged in red and ask for confirmation before they start.
+* **Loss-factor coefficients p1..p5** (eta = p1 x^4 + ... + p5, x = strain as a fraction, 0.01 = 1 %), pre-filled from the
+  case's own file (`data/p.mat`, or `data/p_SE.mat` for the super-elastic case). Edit any of them and the
+  small plot shows the default curve (dashed) against yours (red); **Reset to default** brings them back.
+  A changed `p` is used **for that run only**: `data/p.mat` is never overwritten, and the output files
+  get the suffix `_pmod` (e.g. `results/base_pmod_midspan.png`) so the default-p files stay untouched.
+  The fields are disabled for the linear cases (no loss factor there).
+* **Final time Tf** (blank = the case default), **Compare with linear beam** (overlays the linear
+  reference), **Plot fields** (strain / martensite fraction over the beam), and **Figures**
+  (show and save PNG / show only / save only / none).
+* **Run** starts the simulation (the command window shows the progress); afterwards the mid-span
+  displacement plot opens, and the status line lists the first ring-down peaks. Inputs are checked
+  (numbers, Tf > 0) with a message that says what is wrong. Without a display (e.g. over ssh) a
+  text menu is shown instead.
+
+The scripting interface is unchanged and handy for batch jobs:
+
+```octave
 run_case('base')                    % ~7 min: free vibration, prints the ring-down peaks, saves a figure
 run_case('base','compare_hle',true) % ... and overlays the linear reference (the figure above)
 run_case('composite')               % ~1 min: GFRP/SMA/GFRP sandwich
 run_case('base','Tf',0.1)           % quick look: shorten the duration
+run_case('base','figures','both')   % show the plot windows AND save the PNG ('save' is the default)
+run_case('base','p',[p1 p2 p3 p4 p5])   % own loss-factor coefficients for this run only
 ```
 
-Figures and `.mat` results go to `results/` (git-ignored). In MATLAB use exactly the same
-commands. Octave needs no extra packages (tested with GNU Octave 10.3).
+By default the scripted form only **saves** the figures to `results/` (git-ignored); use
+`'figures','show'` or `'both'` to see them on screen. Octave needs no extra packages (tested with
+GNU Octave 10.3).
 
 *Octave note.* Octave has no `ode23t`; `compat/octave/ode23t.m` is a stand-in that forwards to
 `ode23s` (a stiff Rosenbrock solver). It is only put on the path under Octave. The results are
@@ -104,7 +134,8 @@ The strain and martensite-fraction fields over the beam can be plotted with
 ## Folder structure
 
 ```
-run_case.m              the one entry point: run_case('base') ...
+run_case.m              the one entry point: run_case (window) or run_case('base') ...
+sma_gui.m               the start window (uicontrol only; Octave Qt and MATLAB) + text fallback
 setup_paths.m           adds the folders to the path (called by run_case)
 cases/                  one parameter file per case (case_base.m ...) + default_config.m listing EVERY parameter
 src/                    the solver
@@ -118,11 +149,12 @@ src/                    the solver
   initial_velocity.m    initial half-sine velocity field
   meshare.m             field plots (optional)
   smooth_mean2d.m       moving-average smoothing used by meshare.m
+  case_catalog.m        list of cases with descriptions, runtime estimates, p file (feeds the window)
 brinson/                material level (thesis chapter 2): Brinson model, phase diagram, super-elasticity,
                         Tension_compression_parametric.m (the loss-factor fit), Brinson_validation.m ...
 data/                   p.mat (loss-factor polynomial, original), p_SE.mat (super-elastic one)
 compat/octave/          ode23t stand-in for Octave
-tests/                  run_tests.m: refactored code vs the original 2020 scripts
+tests/                  run_tests.m: refactored code vs the original 2020 scripts; test_gui.m: the start window
 tools/                  make_loss_factor_figure.m
 LICENSE                 MIT
 docs/                   figures; CODE_MAP_original_analysis.md = the original code map (before the cleanup)
@@ -159,12 +191,18 @@ cd tests; run_tests            % quick (~5 min): short runs of every case == the
 run_tests('full')              % + the full base and composite runs, peaks versus the thesis
 ```
 
+The start window has its own automatic test (it opens the window, sets values programmatically and
+presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --no-gui --eval "cd tests; test_gui"`).
+
 ## Known limitations
 
 * Only the thesis geometry (N = 16 nodes) is verified. Other `N` should work in principle but are untested.
 * The model is **one-dimensional** in the material (Brinson): good for beams loaded along their axis;
   not a 3D constitutive law.
 * The two slow cases (`pulse`, `prestrain_se`) take hours in Octave.
+* The start window is busy while a simulation runs (progress is printed in the command window; Ctrl+C
+  stops a run). It is built from plain `uicontrol`s, so its look varies a little between Octave on
+  Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.
 * The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
   a MATLAB run (a MATLAB run of the original code was not available).
 * The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; the cleaned code uses `||`
@@ -173,9 +211,7 @@ run_tests('full')              % + the full base and composite runs, peaks versu
 
 ## Roadmap
 
-1. **Interactive menu** (Octave dialogs): choose load type (free vibration, harmonic force, impulse,
-   pre-strain), force, frequency and duration; it fills a `cfg` and calls `run_case`. It should
-   warn before slow runs and offer a low-resolution quick mode.
+1. ~~Interactive menu~~ **done**: `run_case` opens a start window (case, p coefficients, linear comparison, Tf, figures). Still open: load type / force / frequency fields, and a low-resolution quick mode.
 2. **Post-run beam animation**: animate from the saved displacements after the run (not during the
    solve), colour the beam by phase fraction or stress, export a GIF for this README.
 3. Speed: analytic Jacobian, other solver; save each run with its settings; compare two runs on one plot.
