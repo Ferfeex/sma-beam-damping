@@ -144,6 +144,32 @@ come out: the martensite fractions over length x thickness (`results/<case>_fiel
 
 ![Deformed beam and strain field](docs/strain_example.png)
 
+### Animation of the vibration (and GIF export)
+
+After a run the beam vibration can be played, or written to an animated GIF:
+
+```octave
+run_case('base','animate','gif')        % results/base_animation.gif (no window)
+run_case('base','animate',true)         % play in a window
+run_case('base','animate','both','animate_opts',{'speed',0.05,'exaggeration',50})
+```
+
+or tick **Animate beam** / **Save GIF** in the start window. `src/animate_beam.m` shows, in slow motion (default 0.1x real
+time, 20-25 frames per second, resampled uniformly from the solver's non-uniform steps), the deflected beam (cubic Hermite
+shape of the FE model, deflection exaggerated by the factor printed in the label, undeformed axis dashed), the strain field over
+length x thickness (colour limits fixed over the whole run; computed from the nodal dofs, so no field history is needed, it also
+works for the linear cases) and the mid-span time history with a moving marker. Options: `fps`, `speed`, `exaggeration`,
+`strain`, `history`, `tspan`, `size`, `still` (PNG of one frame); see `help animate_beam`. Runtime is a few seconds for the full base case
+(about 5 s for the 155 frames of the sample; the simulation itself takes longer).
+
+![Animation of the base case](docs/base_animation.gif)
+
+*Full 0.8 s base case, 10x slow motion, deflection x20 (`docs/base_animation.gif`, 2.6 MB; still frame: `docs/base_animation_frame.png`).*
+
+The GIF writer is pure Octave/MATLAB (`imwrite(...,'gif','DelayTime',...,'LoopCount',Inf)`, one common 256-colour palette),
+no external tool needed. Octave needs the GraphicsMagick-enabled `imwrite` (the Windows installer has it; Octave prints a harmless
+"limits images to 8 bits per pixel" warning) - the code asks for LZW compression, without which Octave's GIFs are ~10x larger.
+
 ![Loss factor fit](docs/loss_factor_fit.png)
 
 *Loss factor eta versus reversal strain computed from Brinson cycles, and its polynomial fit.*

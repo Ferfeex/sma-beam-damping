@@ -64,6 +64,30 @@ rat_ = rf.midspan(mm_)./rf.midspan_node(mm_);
 check('mode-1 midspan is ~0.5-0.7 % larger than node 9', all(rat_ > 1.003 & rat_ < 1.010) && rf.x_midspan_node > 530 && rf.x_midspan_node < 535, ...
     sprintf('ratio %.4f..%.4f, node 9 at x = %.1f mm', min(rat_), max(rat_), rf.x_midspan_node));
 
+% 2d. beam animation (src/animate_beam.m, beam_shape_matrix.m, strain_from_dofs.m): shape / strain consistent with the
+%     model, GIF written (multi-frame, delay, looping), frame count = what the uniform frame rate says
+[xg_,Hm_] = beam_shape_matrix(16, 1000, 201);
+wl_ = Hm_ * rf.XX(end,2*16-1:end).';
+check('beam_shape_matrix: w(L/2) == res.midspan; shape == strain_figure deformed shape', abs(wl_((numel(xg_)+1)/2) - rf.midspan(end)) < 1e-9*max(1,abs(rf.midspan(end))) && max(abs(interp1(xg_,wl_,xs_) - ws_)) < 1e-3*max(abs(ws_)), ...
+    sprintf('%.6f vs %.6f mm', wl_((numel(xg_)+1)/2), rf.midspan(end)));
+E_ = strain_from_dofs(rf.cfg, rf.XX(end,2*16-1:end));
+check('strain_from_dofs (B*u) == res.fields.epsyylon at the last step', max(abs(E_ - rf.fields.epsyylon(:,end))) < 1e-9*max(abs(E_)), ...
+    sprintf('max rel diff %.1e', max(abs(E_ - rf.fields.epsyylon(:,end)))/max(abs(E_))));
+ra = run_case('base','Tf',0.07,'figures','none','save_mat',false);   % the first peak is at 0.028 s: the run is shifted to it
+gf = fullfile(od,'anim_test.gif');  sf_ = fullfile(od,'anim_still.png');
+ao = animate_beam(ra, ra.cfg, 'gif', gf, 'still', sf_, 'verbose', false);
+inf_ = imfinfo(gf);
+nexp = floor(ra.TT(end)*25/0.1) + 1;
+check('animate_beam: GIF written, frame count = uniform 25 fps at 0.1x speed', exist(gf,'file')==2 && numel(inf_) == ao.nframes && ao.nframes == nexp && ao.nframes > 5, ...
+    sprintf('%d frames (expected %d), %d x %d px, %.0f kB, %.1f s', numel(inf_), nexp, ao.frame_size(1), ao.frame_size(2), dir_bytes(gf)/1e3, ao.runtime_s));
+check('GIF: 25 fps delay (4 cs), loops forever, LZW-compressed, still PNG written', inf_(1).DelayTime == 4 && inf_(1).LoopCount == 0 && dir_bytes(gf) < 0.15*ao.nframes*prod(ao.frame_size) && exist(sf_,'file')==2 && numel(findall(0,'type','figure'))==nfig0, ...
+    sprintf('DelayTime %g cs, LoopCount %g', inf_(1).DelayTime, inf_(1).LoopCount));
+rg = run_case('base','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate','gif','animate_opts',{'speed',0.2,'strain',false});
+check('run_case(''animate'',''gif''): results/<case>_animation.gif written', exist(fullfile(od,'base_animation.gif'),'file')==2 && rg.animation.nframes == floor(rg.TT(end)*25/0.2)+1 && rg.animation.nframes >= 2, ...
+    sprintf('%d frames', rg.animation.nframes));
+rl = run_case('hle_linear','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate','gif','animate_opts',{'verbose',false});
+check('animation of a linear case (strain from B*u, no field history)', exist(fullfile(od,'hle_linear_animation.gif'),'file')==2 && rl.animation.nframes > 5, sprintf('%d frames', rl.animation.nframes));
+
 % 3. global state is reset between runs: same case twice in one session -> identical
 r2 = run_case('base','Tf',Tf,'figures','none','save_mat',false);
 check('re-run in the same session identical', isequal(r.XX,r2.XX), sprintf('max |dXX| = %g', max(abs(r.XX(:)-r2.XX(:)))));
@@ -104,6 +128,10 @@ if strcmp(mode,'full')
 end
 ok = (nfail == 0);
 if ok, fprintf('\nALL TESTS PASSED\n'); else, fprintf('\n%d TEST(S) FAILED\n', nfail); end
+end
+
+function b = dir_bytes(f)
+d = dir(f); b = d.bytes;
 end
 
 function [same,detail] = compare_runs(o,r,tol)
