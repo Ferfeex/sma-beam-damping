@@ -12,6 +12,13 @@
 > composite peaks 7.05 / 6.25 / 5.50 / 4.81 / 4.19 / 3.63 / 3.13 / 2.69 mm (1162 steps). The equivalence tests against
 > the original scripts now run the original with only that one `&&` -> `||` patch (`tests/run_original.m`).
 > **Open questions 1, 2 and 3 of section 6 are resolved** (MIT + own smoother; `||`; original `p.mat`).
+> **Update of 13 Nov 2026 (mid-span read-out, approved by the author).** `res.midspan` is now the deflection at exactly
+> x = L/2 = 500 mm (cubic Hermite interpolation from w and theta of nodes 8 and 9, `src/midspan_deflection.m`); before it was
+> the deflection of node 9 (x = 533 mm, `X(:,45)` in the original), kept as `res.midspan_node`. All peak numbers quoted
+> below (7.09 / 5.49 / 4.15 / ...) are the node-9 values; the x = 500 mm values are **7.13 / 5.52 / 4.17 / 3.09 / 2.25 /
+> 1.62 / 1.16 / 0.82 mm** (+0.56 %), composite 7.09 / 6.28 / 5.53 / 4.84 / 4.21 / 3.65 mm. XX (the full state), the physics
+> and the equivalence tests against the original scripts are unaffected. See `KNOWN_ISSUES.md` #9. Also on 12 Nov: speed-up
+> (`PERF_NOTES.md`), start window, thesis-style strain figure.
 
 Cleanup of Federico Aghito's master's-thesis code (SMA beam vibration / damping) into a
 repository-ready folder that runs in GNU Octave 10.3. Done on the night of 10 Nov 2026,

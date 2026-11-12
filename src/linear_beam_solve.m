@@ -70,14 +70,19 @@ while T(end)<Tf-0.0001
     T0 = TT(end);
     X0 = X(end,:)';
 end
-col = 2*N-2+2*N/2-1;
+% res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite, see midspan_deflection.m); the old node value
+% (node 9 of 16, x = 533 mm) is kept as res.midspan_node
+[midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
+col = mi.col;
 if cfg.post.shift_to_first_max
-    indice = find(XX(:,col) == max(XX(:,col)));
+    indice = find(midspan == max(midspan));
     indice = indice(1);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
+    midspan = midspan(indice:end);  midspan_node = midspan_node(indice:end);
 end
-res.TT = TT; res.XX = XX; res.col = col; res.midspan = XX(:,col);
+res.TT = TT; res.XX = XX; res.col = col; res.midspan = midspan; res.x_midspan = cfg.geom.L/2;
+res.midspan_node = midspan_node; res.x_midspan_node = mi.x_node;
 res.runtime_s = toc(tic_start); res.alpha = alpha; res.beta = beta;
 end
 

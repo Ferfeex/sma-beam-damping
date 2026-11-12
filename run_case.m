@@ -25,7 +25,8 @@ function res = run_case(c, varargin)
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
 %                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png)
 %
-%   Returns res with fields TT, XX, midspan, runtime_s, cfg, peaks (time, height).
+%   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
+%   (old value: node 9, x = res.x_midspan_node), runtime_s, cfg, peaks (time, height of midspan).
 setup_paths();
 if nargin == 0
     fig = sma_gui();                      % interactive start window (or text menu without display)
@@ -96,13 +97,13 @@ show = any(strcmp(opt.figures,{'show','both'}));
 dosave = any(strcmp(opt.figures,{'save','both'}));
 if ~strcmp(opt.figures,'none')
     if show, f = figure; else, f = figure('visible','off'); end
-    plot(res.TT, res.midspan, 'LineWidth', 1.5); hold on
+    plot(res.TT, res.midspan, 'LineWidth', 1.5); hold on   % deflection at x = L/2
     if ~isempty(ref), plot(ref.TT, ref.midspan, 'LineWidth', 1.5); end
     grid on; xlabel('Time t [s]'); ylabel('Displacement \delta [mm]');
-    ttl = sprintf('Mid-span vertical displacement - %s', strrep(cfg.name,'_','\_'));
+    ttl = sprintf('Mid-span vertical displacement (x = %g mm) - %s', cfg.geom.L/2, strrep(cfg.name,'_','\_'));
     if cfg.p_modified, ttl = [ttl ' (modified p)']; end
     title(ttl);
-    if ~isempty(ref), legend('SMA (loss-factor damping)','linear reference, E = 26 GPa, Rayleigh 1.3 %'); end
+    if ~isempty(ref), legend(sprintf('SMA (loss-factor damping), x = %g mm',cfg.geom.L/2),sprintf('linear reference, E = 26 GPa, Rayleigh 1.3 %%, x = %g mm',cfg.geom.L/2)); end
     if dosave
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         fn = fullfile(opt.outdir, [cfg.name tag '_midspan.png']);
@@ -136,8 +137,8 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-    TT = res.TT; XX = res.XX; midspan = res.midspan; peaks = res.peaks; %#ok<NASGU>
-    save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','peaks','cfg');
+    TT = res.TT; XX = res.XX; midspan = res.midspan; midspan_node = res.midspan_node; x_midspan_node = res.x_midspan_node; peaks = res.peaks; %#ok<NASGU>
+    save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','midspan_node','x_midspan_node','peaks','cfg');
 end
 end
 

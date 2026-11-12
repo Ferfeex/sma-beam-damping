@@ -113,19 +113,27 @@ were not completed (too slow), so those two were compared with the old code only
 
 ### Expected output of the base case
 
-The mid-span deflection rings down like this (peak heights, time axis starting at the first
-maximum):
+The mid-span deflection (at exactly x = L/2 = 500 mm, see below) rings down like this (peak heights, time axis
+starting at the first maximum):
 
 | peak | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
 | t [s] | 0 | 0.110 | 0.220 | 0.329 | 0.437 | 0.543 |
-| height [mm] | 7.09 | 5.49 | 4.15 | 3.07 | 2.24 | 1.61 |
+| height [mm] | 7.13 | 5.52 | 4.17 | 3.09 | 2.25 | 1.62 |
 
 (The ratio of successive peaks, ~0.76, is what the loss factor controls; peaks 2-6 are the
 values of thesis Fig. 4.3: about 5.5, 4.15, 3.1, 2.2, 1.6 mm.)
 
+*Which point is "mid-span"?* With N = 16 nodes (15 elements) there is no node at x = L/2: the nodes 8 and 9 sit at
+x = 467 and 533 mm. Until 12 Nov 2026 the code reported the deflection of node 9 (x = 533 mm). Now `res.midspan`
+is the deflection at exactly x = 500 mm, obtained with the cubic Hermite shape functions of the beam element from
+w and theta of nodes 8 and 9 (`src/midspan_deflection.m`); for mode 1 it is 0.56 % larger. The old node value is
+kept as `res.midspan_node` (position `res.x_midspan_node` = 533 mm, column `res.col` of `res.XX`). The old peaks
+were 7.09, 5.49, 4.15, 3.07, 2.24, 1.61 mm. (The force of the `pulse` cases is still applied symmetrically around node 9,
+see `KNOWN_ISSUES.md` #9.)
+
 The sandwich beam (`run_case('composite')`, GFRP skins around the SMA core) rings down more slowly
-than the pure SMA beam (the SMA is only part of the structure): peaks 7.05, 6.25, 5.50, 4.81, 4.19, 3.63 mm
+than the pure SMA beam (the SMA is only part of the structure): peaks 7.09, 6.28, 5.53, 4.84, 4.21, 3.65 mm (node-9 values: 7.05, 6.25, 5.50, 4.81, 4.19, 3.63)
 (`docs/composite_midspan.png`).
 
 The fields at the last time step can be plotted with

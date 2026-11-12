@@ -40,6 +40,30 @@ check('plot_fields: <case>_fields.png and <case>_strain.png written, no figure l
     exist(fullfile(od,'base_fields.png'),'file')==2 && exist(fullfile(od,'base_strain.png'),'file')==2 && numel(findall(0,'type','figure'))==nfig0, ...
     sprintf('(%d figures open)', numel(findall(0,'type','figure'))));
 
+% 2c. mid-span value: deflection at exactly x = L/2 (Hermite) - consistent with the strain_figure shape, the
+%     node value, and exact for synthetic data (src/midspan_deflection.m; dof map of build_beam.m)
+Nn = 16; Ln = 1000; Lk = Ln/(Nn-1); xn = (0:Nn-1)'*Lk;
+wn = sin(pi*xn/Ln); thn = pi/Ln*cos(pi*xn/Ln); un = zeros(1,2*Nn-2);
+for k = 2:Nn-1, un(2*k-3) = wn(k); un(2*k-2) = thn(k); end
+un(2*Nn-3) = thn(1); un(2*Nn-2) = thn(Nn);
+[wmid,wnode,minfo] = midspan_deflection([zeros(1,2*Nn-2) un], Nn, Ln);
+check('midspan_deflection: sin(pi x/L) -> 1 at x = L/2 (Hermite, N=16), node 9 is lower', abs(wmid-1) < 1e-4 && abs(wnode-sin(pi*xn(9)/Ln)) < 1e-12 && minfo.x_node > 500, ...
+    sprintf('w(L/2) = %.7f, node %d (x = %.1f mm) = %.5f', wmid, minfo.node, minfo.x_node, wnode));
+Nn = 15; Lk = Ln/(Nn-1); xn = (0:Nn-1)'*Lk; wn = sin(pi*xn/Ln); thn = pi/Ln*cos(pi*xn/Ln); un = zeros(1,2*Nn-2);
+for k = 2:Nn-1, un(2*k-3) = wn(k); un(2*k-2) = thn(k); end
+un(2*Nn-3) = thn(1); un(2*Nn-2) = thn(Nn);
+[wmid,~,minfo] = midspan_deflection([zeros(1,2*Nn-2) un], Nn, Ln);
+check('midspan_deflection: N-1 even -> the middle node itself', abs(wmid-1) < 1e-12 && minfo.x_node == 500, sprintf('node %d at x = %g mm', minfo.node, minfo.x_node));
+fh = figure('visible','off');
+[xs_,ws_] = strain_figure(rf.fields.epsyylon, rf.XX, 16, 1000, 10, rf.TT(end), fh); close(fh);
+[~,im_] = min(abs(xs_-500));
+check('res.midspan(end) == deformed shape of strain_figure at x = L/2', abs(xs_(im_)-500) < 1e-9 && abs(ws_(im_)-rf.midspan(end)) < 1e-9*max(1,abs(rf.midspan(end))), ...
+    sprintf('%.6f vs %.6f mm', ws_(im_), rf.midspan(end)));
+mm_ = abs(rf.midspan_node) > 0.5*max(abs(rf.midspan_node));
+rat_ = rf.midspan(mm_)./rf.midspan_node(mm_);
+check('mode-1 midspan is ~0.5-0.7 % larger than node 9', all(rat_ > 1.003 & rat_ < 1.010) && rf.x_midspan_node > 530 && rf.x_midspan_node < 535, ...
+    sprintf('ratio %.4f..%.4f, node 9 at x = %.1f mm', min(rat_), max(rat_), rf.x_midspan_node));
+
 % 3. global state is reset between runs: same case twice in one session -> identical
 r2 = run_case('base','Tf',Tf,'figures','none','save_mat',false);
 check('re-run in the same session identical', isequal(r.XX,r2.XX), sprintf('max |dXX| = %g', max(abs(r.XX(:)-r2.XX(:)))));
@@ -72,7 +96,7 @@ if strcmp(mode,'full')
     % 7. full base case: peaks vs thesis Fig. 4.3 and the stored reference run of the Octave port
     r = run_case('base','figures','save','save_mat',false);
     pk = r.peaks(:,2)';
-    expect = [7.09 5.49 4.15 3.07 2.24 1.61];   % with the corrected (||) Newton loop; the original && gave 5.494 / 4.155 / 3.076
+    expect = [7.13 5.52 4.17 3.09 2.25 1.62];   % deflection at x = L/2 (Hermite), corrected (||) Newton loop; node 9 (before 13 Nov 2026) gave 7.09 5.49 4.15 3.07 2.24 1.61
     check('base full run: ring-down peaks', numel(pk) >= 6 && all(abs(pk(1:6)-expect) < 0.02), ...
         sprintf('peaks [mm]: %s (expected %s; thesis Fig. 4.3: ~5.5 4.15 3.1 2.2 1.6 after the first)', mat2str(pk(1:min(6,end)),3), mat2str(expect)));
     r = run_case('composite','figures','save','save_mat',false);

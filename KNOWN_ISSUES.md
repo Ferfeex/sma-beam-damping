@@ -69,6 +69,23 @@ It builds the initial stiffness matrix but has no `save`; the `KFF.mat` in the o
 by hand, and differs ~12 % from what the script computes. The main path does not need `KFF.mat`
 (the solver builds the matrix), so the script was dropped (a copy is in `archive/loss_variants/xiT0nullo/`).
 
+## 9. The "mid-span" displacement was the deflection of node 9, not of x = L/2 - FIXED (approved by the author, 13 Nov 2026)
+
+`FEM1D.m` read the mid-span displacement from `X(:,45)`, i.e. the deflection dof of node 9 (dof map of
+`build_beam.m`: node k has w = dof 2k-3, theta = dof 2k-2). With N = 16 nodes (15 elements) the middle of the
+beam is the middle of element 8 (between nodes 8 and 9), so node 9 sits at x = 533 mm and its peaks are
+~0.56 % lower than at x = 500 mm for mode 1. `res.midspan` is now the deflection at exactly x = L/2, interpolated with
+the cubic Hermite functions of the element from w and theta (theta = dw/dx, the same convention as the stiffness
+and strain matrices) of nodes 8 and 9; if N-1 is even the middle node is used. The old value remains as
+`res.midspan_node` / `res.x_midspan_node` / `res.col`. Base peaks, old -> new: 7.087 -> 7.128, 5.490 -> 5.521,
+4.149 -> 4.172, 3.072 -> 3.090, 2.239 -> 2.252, 1.612 -> 1.621, 1.149 -> 1.155, 0.812 -> 0.817 mm. The state XX and
+all physics are unchanged; only the read-out changed.
+
+**Still as in the original (not changed):** the force of the `pulse` cases is applied to elements N/2 and N/2+1
+(elements 8 and 9), i.e. symmetric around node 9 (x = 533 mm), not around L/2. The initial velocity field
+(`initial_velocity.m`) is not affected by this. If a load exactly at mid-span is wanted, the force would have to be split between
+nodes 8 and 9.
+
 ## 8. Smaller things
 * `functxi.m` (archive): operator-precedence bug `xi_T(indp) .* 1-xi_sp(indp)`; never called.
 * `Brinson/Prova_zone.m` calls `Zone` with the wrong number of arguments; `Zone_simpl.m` has a syntax

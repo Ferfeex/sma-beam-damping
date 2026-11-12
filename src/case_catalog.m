@@ -16,11 +16,11 @@ rows = {
    'Cu-Al-Zn-Mn beam 1000 x 15 x 10 mm, simply supported, ferro-elastic.'
    'Released with an initial half-sine velocity; it rings down because every'
    'stress reversal dissipates energy (loss factor eta ~ 0.14, thesis Fig. 4.3).'
-   'Expected mid-span peaks: 7.09, 5.49, 4.15, 3.07, 2.24, 1.61 mm.'}
+   'Expected mid-span (x = 500 mm) peaks: 7.13, 5.52, 4.17, 3.09, 2.25, 1.62 mm.'}
  'composite', 'Composite: GFRP / SMA / GFRP sandwich beam', 2, false, {
    'SMA core 15 x 10 mm between two linear GFRP skins (thesis chapter 4.1,'
    'configuration 1). Free vibration; rings down more slowly than the pure SMA beam.'
-   'Expected mid-span peaks: 7.05, 6.25, 5.50, 4.81, 4.19, 3.63 mm.'}
+   'Expected mid-span (x = 500 mm) peaks: 7.09, 6.28, 5.53, 4.84, 4.21, 3.65 mm.'}
  'hle_linear', 'Linear reference beam (E = 26 GPa, Rayleigh 1.3 %)', 2, false, {
    'The same beam as the base case but linear elastic with Rayleigh damping.'
    'Shows what the SMA damping adds. No loss-factor polynomial is used.'}

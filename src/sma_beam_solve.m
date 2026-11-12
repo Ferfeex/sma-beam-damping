@@ -10,7 +10,8 @@ function res = sma_beam_solve(cfg)
 %
 %   res = sma_beam_solve(cfg)   cfg: struct from a cases/case_*.m file (see case_base.m)
 %   res.TT, res.XX   time [s] and state [velocities(30) displacements(30)]
-%   res.midspan      mid-span vertical displacement [mm]
+%   res.midspan      vertical displacement at x = L/2 [mm] (Hermite interpolation, nodes 8-9 for N=16)
+%   res.midspan_node old mid-span value: node 9, x = res.x_midspan_node (533 mm); res.col = its column in XX
 %   res.fields       (optional) strain / martensite fractions / stress at every step
 %
 % Variable names (N, Ea, Emp, ..., KFF, CFF, LF, xisp, ...) are the original ones.
@@ -219,13 +220,18 @@ while T(end) < Tf-0.0001
 end
 
 % ---- MID-SPAN VERTICAL DISPLACEMENT ----
-col = 2*N-2+2*N/2-1;                      % column of the mid-span displacement in X
+% res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite through nodes 8 and 9 for N = 16, see
+% midspan_deflection.m). Before 13 Nov 2026 the value of node 9 (x = 533 mm) was used; it is kept as
+% res.midspan_node (column res.col of XX, position res.x_midspan_node).
+[midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
+col = mi.col;
 if cfg.post.shift_to_first_max
     % the time axis starts at the first (largest) mid-span maximum, as in the original
-    indice = find(XX(:,col) == max(XX(:,col)));
+    indice = find(midspan == max(midspan));
     indice = indice(1);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
+    midspan = midspan(indice:end);  midspan_node = midspan_node(indice:end);
     if histmode == 1                          % shift only a full history
         epsyylon = epsyylon(:,indice:end);
         xysp = xysp(:,indice:end);
@@ -240,7 +246,10 @@ end
 res.TT = TT;
 res.XX = XX;
 res.col = col;
-res.midspan = XX(:,col);
+res.midspan = midspan;                    % [mm] at x = L/2
+res.x_midspan = cfg.geom.L/2;
+res.midspan_node = midspan_node;          % [mm] old value: node mi.node, x = res.x_midspan_node
+res.x_midspan_node = mi.x_node;
 res.runtime_s = toc(tic_start);
 res.nrestart = nrestart;
 if cfg.post.keep_fields

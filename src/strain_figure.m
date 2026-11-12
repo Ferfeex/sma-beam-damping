@@ -1,4 +1,4 @@
-function strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
+function [xs, ws] = strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
 % STRAIN_FIGURE  thesis-style picture of the beam at the LAST time step:
 %   top    : vertical displacement along the beam [mm], deformed (cubic Hermite through the nodal
 %            deflections w and rotations theta) against the undeformed axis, with nodes marked;
@@ -6,13 +6,16 @@ function strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
 %            interpolation as src/meshare.m: smooth_mean2d(.,1,8) + interp2).
 %   epsyylon : strain at the integration points, one column per time step (res.fields.epsyylon)
 %   XX       : state history [velocities(2N-2) displacements(2N-2)] (res.XX), last row is used
+%   xs, ws   : (optional outputs) abscissae and deflection of the plotted deformed shape; ws at x = L/2
+%              equals res.midspan(end) (src/midspan_deflection.m, checked in tests/run_tests.m)
 %   fig      : (optional) figure handle to draw in; a new figure is opened if omitted.
 if nargin < 7 || isempty(fig), fig = figure; end
 figure(fig); clf
 Lk = L/(N-1);
 u  = XX(end, 2*N-1:end).';                 % free displacement dofs at the last step
-% nodal deflection w_k and rotation th_k (dof map of build_beam.m: node k=2..N-1 -> dofs 2k-3, 2k-2;
-% the end rotations are dofs 2N-3 (node 1) and 2N-2 (node N); w = 0 at both supports)
+% nodal deflection w_k and rotation th_k = dw/dx (dof map of build_beam.m, verified: element dofs
+% [w_a th_a w_b th_b], node k=2..N-1 -> dofs 2k-3, 2k-2; the end rotations are dofs 2N-3 (node 1)
+% and 2N-2 (node N); w = 0 at both supports; same map as src/midspan_deflection.m)
 w  = zeros(N,1);  th = zeros(N,1);
 for k = 2:N-1, w(k) = u(2*k-3); th(k) = u(2*k-2); end
 th(1) = u(2*N-3);  th(N) = u(2*N-2);
