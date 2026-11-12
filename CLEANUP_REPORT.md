@@ -152,6 +152,6 @@ Runtimes in Octave (1 core): base ~370 s (333 s alone), composite ~53-80 s, `hle
 `run_case` with no arguments (or `sma_gui`) opens a window: case list with description and runtime estimate (slow cases flagged), the
 five loss-factor coefficients (pre-filled from `data/p.mat` / `p_SE.mat`, editable for that run only, Reset button, live eta preview),
 "Compare with linear beam", "Plot fields", optional `Tf`, show/save choice, Run. New files: `sma_gui.m`, `src/case_catalog.m`,
-`tests/test_gui.m` (+ `tests/xshot.py`), `docs/gui_screenshot.png`, `docs/gui_slow_warning.png`. `run_case` gained the options `'p'` (this run only,
+`tests/test_gui.m` (+ `tests/xshot.py`), `docs/gui_screenshot.png`. `run_case` gained the options `'p'` (this run only,
 output files get `_pmod`) and `'figures','both'`; the scripted interface and its defaults are unchanged. Tested headless (xvfb, Octave 10.3 Qt);
 not tested on Windows or in MATLAB.

@@ -1,10 +1,11 @@
-function meshare(epsyylon,xysp,xysm,xyT,t,thick,L)
+function meshare(epsyylon,xysp,xysm,xyT,t,thick,L,fig)
 % MESHARE  strain and martensite-fraction fields (xi_s+, xi_s-, xi_T) over the beam at the LAST
 % time step (thesis Fig. 'Simulazione_lunga'). Uses src/smooth_mean2d.m for smoothing.
 % [2026 cleanup] thick / L are now arguments (default 20 / 1000 as in the original, which
 % hard-coded the 30x20 mm section; the base beam is 15x10 mm -> pass 10).
 if nargin < 6, thick = 20; end
 if nargin < 7, L = 1000; end
+if nargin < 8 || isempty(fig), fig = figure; end   % [2026] draw in the figure handed over by run_case (no second, empty window)
 y = linspace(thick/2,-thick/2,10)';
 for ind = length(xysp(1,:))
     epsilones = reshape(epsyylon(:,ind),length(y),[]);
@@ -27,7 +28,7 @@ for ind = length(xysp(1,:))
     ximi = interp2(X,Y,xims,xx,yy);
 
     xiti = interp2(X,Y,xits,xx,yy);
-    figure
+    figure(fig); clf
 %     subplot(4,1,1)
 %     mesh(xx,yy,epsilonesi)
 %     xlabel('length [mm]')

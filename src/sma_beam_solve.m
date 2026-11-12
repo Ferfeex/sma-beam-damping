@@ -134,6 +134,11 @@ else
     Bfull = [];
 end
 
+% field recording: 0 = none, 2 = latest step only (enough for the field plots), 1 = full history
+histmode = pfo.hist;
+if cfg.post.keep_fields && histmode == 0, histmode = 2; end
+if isfield(cfg.post,'keep_field_history') && cfg.post.keep_field_history, histmode = 1; end
+
 % ---- parameters handed to the OutputFcn ----
 prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ...
     'BB11',bm.BB11,'BB12',bm.BB12,'BB13',bm.BB13,'BB14',bm.BB14, ...
@@ -143,7 +148,7 @@ prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ..
     'Ea',Ea,'Emp',Emp,'ssp',ssp,'sfp',sfp,'eps_Lp',eps_Lp,'p',p,'f_ref',f_ref, ...
     'newton_maxit',cfg.numerics.newton_maxit, ...
     'verbose',cfg.numerics.verbose, ...
-    'perf',struct('vec',pfo.vec,'sets',pfo.sets,'hist',pfo.hist || cfg.post.keep_fields),'pf',pf,'Bfull',Bfull, ...
+    'perf',struct('vec',pfo.vec,'sets',pfo.sets,'hist',histmode),'pf',pf,'Bfull',Bfull, ...
     'has_pulse',has_pulse,'t_rise',0,'t_end',0,'dt_restart',1e-5);
 if has_pulse
     prm.t_rise = cfg.load.t_rise;  prm.t_end = cfg.load.t_end;
@@ -221,7 +226,7 @@ if cfg.post.shift_to_first_max
     indice = indice(1);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
-    if pfo.hist || cfg.post.keep_fields      % field history exists only if it was recorded
+    if histmode == 1                          % shift only a full history
         epsyylon = epsyylon(:,indice:end);
         xysp = xysp(:,indice:end);
         if strcmp(model,'two_phase')

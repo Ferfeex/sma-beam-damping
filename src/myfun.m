@@ -40,7 +40,7 @@ if nargin < 3 || isempty(flag)
             FFF = 0*FF;
         end
     end
-    if prm.perf.hist, tt = [tt T]; yy = [yy X]; end   % history of the original (never read back; O(n^2) copy cost)
+    if prm.perf.hist == 1, tt = [tt T]; yy = [yy X]; end   % history of the original (never read back; O(n^2) copy cost)
     % DISPLACEMENT FIELD
     XA = [X(2*N-1:end);zeros(2,1)];   % displacement part of the state (was X(31:60) for N=16)
     if prm.perf.vec
@@ -161,12 +161,18 @@ if nargin < 3 || isempty(flag)
     K = sum(K,3);
     KFF = K(1:2*N-2,1:2*N-2) + KFF_ADD;
     end
-    if prm.perf.hist
+    if prm.perf.hist == 1          % full history, one column per step (O(n^2) copying: only if cfg.post.keep_field_history)
     epsyylon = [epsyylon, epsilon];
     xysp = [xysp , xisp];
     xysm = [xysm , xism];
     xyT = [xyT, xiT];
     s = [s , sigma_i];
+    elseif prm.perf.hist == 2      % only the latest column (all that the field plots use)
+        epsyylon = epsilon;
+        xysp = xisp;
+        xysm = xism;
+        xyT = xiT;
+        s = sigma_i;
     end
     sigma_old = sigma_i;
     if prm.verbose

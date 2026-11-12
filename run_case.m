@@ -22,7 +22,8 @@ function res = run_case(c, varargin)
 %     'outdir'      folder for figures/results (default <repo>/results, git-ignored)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
 %     'verbose'     true = original per-step printout
-%     'plot_fields' true = also plot strain / martensite fractions over the beam at the end (src/meshare.m)
+%     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
+%                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png)
 %
 %   Returns res with fields TT, XX, midspan, runtime_s, cfg, peaks (time, height).
 setup_paths();
@@ -113,16 +114,25 @@ if ~strcmp(opt.figures,'none')
 end
 if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none')
     ff = res.fields;
-    if show, figure; else, figure('visible','off'); end
-    meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L);
+    if ~exist(opt.outdir,'dir') && dosave, mkdir(opt.outdir); end
+    % 1) martensite fractions over the beam at the last time step (thesis 'Simulazione_lunga')
+    if show, f = figure; else, f = figure('visible','off'); end
+    meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L,f);
     if dosave
-        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         fn = fullfile(opt.outdir, [cfg.name tag '_fields.png']);
-        print(gcf,'-dpng','-r110',fn);
-        if ~show, close(gcf); end
+        print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if show, drawnow; end
+    if ~show, close(f); else, drawnow; end
+    % 2) thesis-style deformed beam + strain map at the last time step
+    if show, f = figure; else, f = figure('visible','off'); end
+    strain_figure(ff.epsyylon,res.XX,cfg.geom.N,cfg.geom.L,cfg.geom.thick,res.TT(end),f);
+    if dosave
+        fn = fullfile(opt.outdir, [cfg.name tag '_strain.png']);
+        print(f,'-dpng','-r110',fn);
+        fprintf('figure: %s\n', fn);
+    end
+    if ~show, close(f); else, drawnow; end
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end

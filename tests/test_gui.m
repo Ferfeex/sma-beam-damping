@@ -32,7 +32,7 @@ for k = 1:numel(S.C)
 end
 check('case selection toggles p fields / compare for linear cases', okall);
 set(H.list,'value',4); sma_gui('select',fig);
-check('slow case shows warning text', ~isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
+check('pulse case: estimate shown, no "very slow" warning since the 2026 speed-up', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
 set(H.list,'value',5); sma_gui('select',fig);
 check('SE case: p_SE.mat loaded (4 coefficients, 5th field disabled)', strcmp(get(H.pe(5),'enable'),'off') && ~isempty(get(H.pe(4),'string')));
 set(H.list,'value',1); sma_gui('select',fig);
@@ -83,7 +83,7 @@ check('linear case runs', ~isempty(res3) && numel(res3.TT) > 10);
 % --- run 4: fields plot ----------------------------------------------------------------------------------------------------------
 set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.03'); set(H.fld,'value',1); set(H.figs,'value',3);
 setappdata(fig,'LastResult',[]); sma_gui('run',fig);
-check('field plot run (save only) finished', ~isempty(getappdata(fig,'LastResult')) && exist(fullfile(root,'results','base_fields.png'),'file')==2);
+check('field plot run (save only) finished', ~isempty(getappdata(fig,'LastResult')) && exist(fullfile(root,'results','base_fields.png'),'file')==2 && exist(fullfile(root,'results','base_strain.png'),'file')==2);
 
 close all
 if nfail == 0, fprintf('\nALL GUI TESTS PASSED\n'); else, fprintf('\n%d GUI TEST(S) FAILED\n',nfail); end

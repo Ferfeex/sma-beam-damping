@@ -54,8 +54,9 @@ run_case             % opens the start window: choose the case, change p, tick t
 
 ![Start window](docs/gui_screenshot.png)
 
-* **Case list** with a description and the estimated runtime of each case. The two slow cases
-  (`pulse`, `prestrain_se`, hours in Octave) are flagged in red and ask for confirmation before they start.
+* **Case list** with a description and the estimated runtime of each case. A case whose estimate
+  exceeds ~20 min would be flagged in red and ask for confirmation before it starts (none at the moment since
+  the 2026 speed-up; with a long `Tf` the estimate scales and the warning can still appear).
 * **Loss-factor coefficients p1..p5** (eta = p1 x^4 + ... + p5, x = strain as a fraction, 0.01 = 1 %), pre-filled from the
   case's own file (`data/p.mat`, or `data/p_SE.mat` for the super-elastic case). Edit any of them and the
   small plot shows the default curve (dashed) against yours (red); **Reset to default** brings them back.
@@ -73,9 +74,9 @@ run_case             % opens the start window: choose the case, change p, tick t
 The scripting interface is unchanged and handy for batch jobs:
 
 ```octave
-run_case('base')                    % ~7 min: free vibration, prints the ring-down peaks, saves a figure
+run_case('base')                    % ~10 s: free vibration, prints the ring-down peaks, saves a figure
 run_case('base','compare_hle',true) % ... and overlays the linear reference (the figure above)
-run_case('composite')               % ~1 min: GFRP/SMA/GFRP sandwich
+run_case('composite')               % ~2 s: GFRP/SMA/GFRP sandwich
 run_case('base','Tf',0.1)           % quick look: shorten the duration
 run_case('base','figures','both')   % show the plot windows AND save the PNG ('save' is the default)
 run_case('base','p',[p1 p2 p3 p4 p5])   % own loss-factor coefficients for this run only
@@ -93,19 +94,22 @@ visually the same as in MATLAB but not bit-identical.
 
 | `run_case(...)` | What | Runtime in Octave (1 core) |
 |---|---|---|
-| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~7 min (430 s measured, 4900 steps) |
+| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~10 s (9 s measured, 5100 steps; 433 s before the 2026 speed-up) |
 | `'hle_linear'` | Linear reference beam, E = 26 GPa, Rayleigh 1.3 % | 2 s |
-| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~1 min (53 s) |
+| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~2 s (1.5 s measured; 53 s before) |
 | `'linear_pulse_incremental'`, `'linear_pulse_rectangular'` | Linear GFRP beam under a ramp / rectangular load pulse | 17 s |
-| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | **very slow**: 0.16 s of the 0.8 s took ~33 min; expect hours |
-| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | **very slow**: 0.40 s of 0.8 s took ~30 min; expect hours |
+| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | ~2 min (112 s measured, 64000 steps; hours before the 2026 speed-up) |
+| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | ~45 s (41 s measured, 20800 steps; hours before the 2026 speed-up) |
 
-The slow cases were only smoke-tested with a shortened duration (`'Tf',0.02`); they match the
-original scripts to round-off for that duration (`tests/run_tests.m`) but their full 0.8 s runs were
-not completed. Why they are slow: `ode23s` builds a numerical Jacobian every step and the
-OutputFcn restarts the solver at every stress reversal. Passing an analytic Jacobian (the system
-is linear in the state), or using an explicit solver, would very likely speed them up a lot; this
-was not tried.
+Timings: GNU Octave 10.3 on a Linux box, 1 core; a laptop will differ. The 2026 speed-up
+(`PERF_NOTES.md`: vectorised assembly, analytic Jacobian, no per-step history; same solver, same
+tolerances, same physics) made `pulse` and `prestrain_se` practical. The shortened runs equal the
+original scripts to a relative 1e-5 (`tests/run_tests.m`). **Results match to rounding level**: same step
+counts and peaks to 1e-9 in the short runs, and at most **0.15 %** peak difference in the full base
+run (a single restart can flip with round-off). The super-elastic case is more sensitive: its late
+peaks (after ~0.3 s) move by a few percent under any round-off-level perturbation or change of
+`RelTol`/`AbsTol`, see `PERF_NOTES.md`. The full-length old-code runs of `pulse` and `prestrain_se`
+were not completed (too slow), so those two were compared with the old code only on shortened runs.
 
 ### Expected output of the base case
 
@@ -124,8 +128,13 @@ The sandwich beam (`run_case('composite')`, GFRP skins around the SMA core) ring
 than the pure SMA beam (the SMA is only part of the structure): peaks 7.05, 6.25, 5.50, 4.81, 4.19, 3.63 mm
 (`docs/composite_midspan.png`).
 
-The strain and martensite-fraction fields over the beam can be plotted with
-`run_case('base','Tf',0.3,'plot_fields',true)` (`docs/fields_example.png`).
+The fields at the last time step can be plotted with
+`run_case('base','Tf',0.3,'plot_fields',true)` (or the "Plot fields" box of the start window). Two figures
+come out: the martensite fractions over length x thickness (`results/<case>_fields.png`,
+`docs/fields_example.png`) and the thesis-style picture of the deformed beam with the strain map
+(`results/<case>_strain.png`, `docs/strain_example.png`).
+
+![Deformed beam and strain field](docs/strain_example.png)
 
 ![Loss factor fit](docs/loss_factor_fit.png)
 
@@ -187,7 +196,7 @@ original `data/p.mat`, which matches the thesis best (the regenerated curve is l
 ## Tests
 
 ```octave
-cd tests; run_tests            % quick (~5 min): short runs of every case == the original scripts
+cd tests; run_tests            % quick (~2.5 min): short runs of every case equal to the original scripts within a relative 1e-5 (round-off)
 run_tests('full')              % + the full base and composite runs, peaks versus the thesis
 ```
 
@@ -199,7 +208,7 @@ presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --n
 * Only the thesis geometry (N = 16 nodes) is verified. Other `N` should work in principle but are untested.
 * The model is **one-dimensional** in the material (Brinson): good for beams loaded along their axis;
   not a 3D constitutive law.
-* The two slow cases (`pulse`, `prestrain_se`) take hours in Octave.
+* The results depend on the ODE tolerance (the ring-down of the base case is ~2 % higher with `RelTol` 1e-5 than with the default 1e-3; the super-elastic case is more sensitive), because stress reversals are detected on the solver's step grid. See `PERF_NOTES.md`.
 * The start window is busy while a simulation runs (progress is printed in the command window; Ctrl+C
   stops a run). It is built from plain `uicontrol`s, so its look varies a little between Octave on
   Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.

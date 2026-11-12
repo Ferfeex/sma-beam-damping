@@ -6,32 +6,32 @@ function C = case_catalog()
 %   text       cell array of description lines
 %   t_ref      estimated runtime of the full default duration [s], GNU Octave, 1 core
 %   Tf_def     default duration of the case [s]
-%   slow       true if a default run takes hours
+%   slow       true if a default run takes more than ~20 min (none at the moment since the 2026 speed-up)
 %   model      'two_phase' | 'one_phase_SE' | 'linear'
 %   p_file     file in data/ with the loss-factor polynomial ('' for linear cases)
 %   x_ref      damping.x_ref of the case (strain, or stress for the SE case)
-% The runtimes are the ones measured in Octave (README, "The cases"); MATLAB is usually faster.
+% The runtimes are the ones measured in Octave on a Linux box with the fast code path (README, "The cases", PERF_NOTES.md); a laptop will differ.
 rows = {
- 'base', 'Base case: free vibration of the SMA beam', 430, false, {
+ 'base', 'Base case: free vibration of the SMA beam', 10, false, {
    'Cu-Al-Zn-Mn beam 1000 x 15 x 10 mm, simply supported, ferro-elastic.'
    'Released with an initial half-sine velocity; it rings down because every'
    'stress reversal dissipates energy (loss factor eta ~ 0.14, thesis Fig. 4.3).'
    'Expected mid-span peaks: 7.09, 5.49, 4.15, 3.07, 2.24, 1.61 mm.'}
- 'composite', 'Composite: GFRP / SMA / GFRP sandwich beam', 55, false, {
+ 'composite', 'Composite: GFRP / SMA / GFRP sandwich beam', 2, false, {
    'SMA core 15 x 10 mm between two linear GFRP skins (thesis chapter 4.1,'
    'configuration 1). Free vibration; rings down more slowly than the pure SMA beam.'
    'Expected mid-span peaks: 7.05, 6.25, 5.50, 4.81, 4.19, 3.63 mm.'}
  'hle_linear', 'Linear reference beam (E = 26 GPa, Rayleigh 1.3 %)', 2, false, {
    'The same beam as the base case but linear elastic with Rayleigh damping.'
    'Shows what the SMA damping adds. No loss-factor polynomial is used.'}
- 'pulse', 'Force pulse on the SMA beam (200 N / 0.02 s)', 10000, true, {
+ 'pulse', 'Force pulse on the SMA beam (200 N / 0.02 s)', 115, false, {
    'Rectangular force pulse on the 30 x 20 mm SMA beam, starting at rest'
-   '(thesis 3.3.2, Fig. 3.23). VERY SLOW in Octave: 0.16 s of the 0.8 s took'
-   'about 33 minutes, so the full run takes hours. Try a short Tf first.'}
- 'prestrain_se', 'Pre-stressed super-elastic beam (60 MPa)', 6000, true, {
+   '(thesis 3.3.2, Fig. 3.23). About 2 minutes in Octave with the fast code path'
+   '(it took hours before the 2026 speed-up; 64000 solver steps).'}
+ 'prestrain_se', 'Pre-stressed super-elastic beam (60 MPa)', 45, false, {
    'SMA beam 30 x 20 mm above Af, pre-stressed with 60 MPa, one martensite'
    'fraction (thesis 3.3.3). The loss factor is a function of STRESS (p_SE.mat).'
-   'VERY SLOW in Octave: 0.4 s of 0.8 s took about 30 minutes; expect hours.'}
+   'Under a minute in Octave with the fast code path (hours before the 2026 speed-up).'}
  'linear_pulse_incremental', 'Linear GFRP beam, ramp load pulse', 17, false, {
    'Linear GFRP beam (E = 46 GPa), force ramps up to 50 N at t = 0.033 s and is'
    'then released (thesis 3.2, Fig. 3.21). The force term is inferred (KNOWN_ISSUES).'}

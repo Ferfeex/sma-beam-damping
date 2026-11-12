@@ -20,7 +20,7 @@ LF_offset = prm.LF_offset;         % was hard-coded +0.015
 sigma_rev = prm.sigma_rev;         % was hard-coded 120 [MPa]
 if nargin < 3 || isempty(flag)
     % VARIABLES UPDATE AND EVALUATION
-    if prm.perf.hist, tt = [tt T]; yy = [yy X]; end   % history of the original (never read back; O(n^2) copy cost)
+    if prm.perf.hist == 1, tt = [tt T]; yy = [yy X]; end   % history of the original (never read back; O(n^2) copy cost)
     % DISPLACEMENT FIELD
     XA = [X(2*N-1:end);zeros(2,1)];   % was X(31:60) for N=16
     if prm.perf.vec
@@ -128,10 +128,14 @@ if nargin < 3 || isempty(flag)
     K = sum(K,3);
     KFF = K(1:2*N-2,1:2*N-2);
     end
-    if prm.perf.hist
+    if prm.perf.hist == 1          % full history, one column per step (O(n^2) copying: only if cfg.post.keep_field_history)
     epsyylon = [epsyylon, epsilon];
     xysp = [xysp , xisp];
     s = [s , sigma_i];
+    elseif prm.perf.hist == 2      % only the latest column (all that the field plots use)
+        epsyylon = epsilon;
+        xysp = xisp;
+        s = sigma_i;
     end
     sigma_old = sigma_i;
     if prm.verbose
