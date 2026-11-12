@@ -1,6 +1,9 @@
 function res = run_case(c, varargin)
 % RUN_CASE  single entry point: run one simulation case and (optionally) plot / save it.
 %
+%   run_case                              NO arguments: opens the interactive start window (sma_gui.m):
+%                                         choose the case, edit the loss-factor polynomial p, tick
+%                                         "compare with linear beam", press Run
 %   run_case('base')                      free vibration of the SMA beam (thesis base case)
 %   run_case('composite')                 GFRP/SMA/GFRP sandwich beam
 %   run_case('hle_linear')                linear reference beam (E = 26 GPa, Rayleigh damping)
@@ -12,7 +15,10 @@ function res = run_case(c, varargin)
 %   Name/value options:
 %     'Tf'          override the duration [s]        (e.g. 'Tf',0.1 for a quick smoke test)
 %     'compare_hle' true/false: also run the linear reference and overlay it (default false)
-%     'figures'     'save' (default, PNG in outdir) | 'show' | 'none'
+%     'figures'     'save' (default, PNG in outdir, no window) | 'show' (windows only) |
+%                   'both' (windows AND PNG, what the start window uses by default) | 'none'
+%     'p'           loss-factor polynomial to use for THIS run (vector, polyval order) instead of
+%                   data/p.mat (or p_SE.mat); data files are never modified
 %     'outdir'      folder for figures/results (default <repo>/results, git-ignored)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
 %     'verbose'     true = original per-step printout
@@ -20,8 +26,13 @@ function res = run_case(c, varargin)
 %
 %   Returns res with fields TT, XX, midspan, runtime_s, cfg, peaks (time, height).
 setup_paths();
+if nargin == 0
+    fig = sma_gui();                      % interactive start window (or text menu without display)
+    if nargout > 0, res = fig; end
+    return
+end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false);
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[]);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -29,6 +40,9 @@ end
 root = fileparts(mfilename('fullpath'));
 if isempty(opt.outdir), opt.outdir = fullfile(root,'results'); end
 
+if ~any(strcmp(opt.figures,{'save','show','both','none'}))
+    error('run_case: option ''figures'' must be ''save'', ''show'', ''both'' or ''none''');
+end
 if ischar(c)
     cfg = feval(['case_' c]);
 else
@@ -43,7 +57,18 @@ if ~strcmp(cfg.model,'linear')
     if ~exist(pf,'file'), pf = fullfile(root,'data',pf); end
     d = load(pf);                                  % polynomial p of the loss factor
     cfg.p = d.p;
+    cfg.p_modified = false;
+    if ~isempty(opt.p)
+        if ~isnumeric(opt.p) || ~all(isfinite(opt.p(:))) || isempty(opt.p)
+            error('run_case: option ''p'' must be a numeric vector of finite coefficients');
+        end
+        cfg.p = opt.p(:).';                        % this run only: nothing is written to data/
+        cfg.p_modified = ~isequal(cfg.p, d.p(:).');
+    end
+else
+    cfg.p_modified = false;
 end
+tag = '';  if cfg.p_modified, tag = '_pmod'; end   % do not overwrite the default-p files
 
 fprintf('== run_case: %s ==\n%s\n', cfg.name, cfg.description);
 if strcmp(cfg.model,'linear')
@@ -66,35 +91,43 @@ if opt.compare_hle
     res.reference = ref;
 end
 
+show = any(strcmp(opt.figures,{'show','both'}));
+dosave = any(strcmp(opt.figures,{'save','both'}));
 if ~strcmp(opt.figures,'none')
-    if strcmp(opt.figures,'save'), f = figure('visible','off'); else f = figure; end
+    if show, f = figure; else, f = figure('visible','off'); end
     plot(res.TT, res.midspan, 'LineWidth', 1.5); hold on
     if ~isempty(ref), plot(ref.TT, ref.midspan, 'LineWidth', 1.5); end
     grid on; xlabel('Time t [s]'); ylabel('Displacement \delta [mm]');
-    title(sprintf('Mid-span vertical displacement - %s', strrep(cfg.name,'_','\_')));
+    ttl = sprintf('Mid-span vertical displacement - %s', strrep(cfg.name,'_','\_'));
+    if cfg.p_modified, ttl = [ttl ' (modified p)']; end
+    title(ttl);
     if ~isempty(ref), legend('SMA (loss-factor damping)','linear reference, E = 26 GPa, Rayleigh 1.3 %'); end
-    if strcmp(opt.figures,'save')
+    if dosave
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-        fn = fullfile(opt.outdir, [cfg.name '_midspan.png']);
-        print(f,'-dpng','-r110',fn); close(f);
+        fn = fullfile(opt.outdir, [cfg.name tag '_midspan.png']);
+        print(f,'-dpng','-r110',fn);
+        if ~show, close(f); end
         fprintf('figure: %s\n', fn);
     end
+    if show, drawnow; end
 end
-if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase')
+if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none')
     ff = res.fields;
-    if strcmp(opt.figures,'save'), figure('visible','off'); end
+    if show, figure; else, figure('visible','off'); end
     meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L);
-    if strcmp(opt.figures,'save')
+    if dosave
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-        fn = fullfile(opt.outdir, [cfg.name '_fields.png']);
-        print('-dpng','-r110',fn); close(gcf);
+        fn = fullfile(opt.outdir, [cfg.name tag '_fields.png']);
+        print(gcf,'-dpng','-r110',fn);
+        if ~show, close(gcf); end
         fprintf('figure: %s\n', fn);
     end
+    if show, drawnow; end
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
     TT = res.TT; XX = res.XX; midspan = res.midspan; peaks = res.peaks; %#ok<NASGU>
-    save('-v7', fullfile(opt.outdir,[cfg.name '_result.mat']), 'TT','XX','midspan','peaks','cfg');
+    save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','peaks','cfg');
 end
 end
 
