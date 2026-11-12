@@ -20,15 +20,18 @@ LF_offset = prm.LF_offset;         % was hard-coded +0.015
 sigma_rev = prm.sigma_rev;         % was hard-coded 120 [MPa]
 if nargin < 3 || isempty(flag)
     % VARIABLES UPDATE AND EVALUATION
-    tt = [tt T];
-    yy = [yy X];
+    if prm.perf.hist, tt = [tt T]; yy = [yy X]; end   % history of the original (never read back; O(n^2) copy cost)
     % DISPLACEMENT FIELD
     XA = [X(2*N-1:end);zeros(2,1)];   % was X(31:60) for N=16
+    if prm.perf.vec
+        epsilon = prm.Bfull * X(2*N-1:end) + eps0;   % B*Extr precombined (identical result up to round-off)
+    else
     X_k = zeros(4*(N-1),1);
     for k = 1:N-1
         X_k(4*(k-1)+1:4*k,1) = Extr(:,:,k) * XA;
     end
     epsilon = B * X_k + eps0;
+    end
     % FIRST SIGMA GUESS
     sigma_i = sigma0 + (Ea + xisp*(Emp-Ea)) .* (epsilon-eps_Lp*xisp) - (Ea + xisp0*(Emp-Ea)) .* (epsilon0-eps_Lp*xisp0);
     % NEWTON RAPHSON + FSOLVE (WHEN NEWTON DOES NOT CONVERGE)
@@ -37,6 +40,19 @@ if nargin < 3 || isempty(flag)
     indp = find(sigma_i > ssmart & sigma_i < sfmart & sigma_i >= sigma_old);
     indm = find(sigma_i < ssaus & sigma_i > sfaus & sigma_i <= sigma_old);
     %%%%%%%%%%%%%%%%%%% UPDATING XI_0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    if prm.perf.sets
+        % logical-mask version of the set algebra below (same index sets, no setdiff/union/unique overhead)
+        n_ = numel(sigma_i);
+        Mp = msk_(indp,n_); Mm = msk_(indm,n_);
+        exp_ = msk_(indp_old,n_) & ~Mp;  exm_ = msk_(indm_old,n_) & ~Mm;
+        ex_indp = find(exp_); ex_indm = find(exm_);
+        P1 = msk_(p1,n_); M1 = msk_(m1,n_);
+        M1(sigma_i > ssaus) = false;
+        P1(sigma_i < ssmart) = false;
+        P1 = P1 | exp_;  M1 = M1 | exm_;
+        indp = find(Mp & ~exp_ & ~P1);  indm = find(Mm & ~exm_ & ~M1);
+        p1 = find(P1); m1 = find(M1);
+    else
     ex_indp = setdiff(indp_old, indp); ex_indm = setdiff(indm_old, indm);
     am = find(sigma_i > ssaus);
     ap = find(sigma_i < ssmart);
@@ -50,6 +66,7 @@ if nargin < 3 || isempty(flag)
     m1 = union(m1, ex_indm);
     indp = setdiff(indp,ex_indp); indp = setdiff(indp,p1);
     indm = setdiff(indm,ex_indm); indm = setdiff(indm,m1);
+    end
     
     indp_old = indp; indm_old = indm;
     
@@ -75,8 +92,12 @@ if nargin < 3 || isempty(flag)
         % SIGMA UPDATE
         sigma_i(index) = sigma_i(index) - F(index)./dF(index);
         % UNION OF PHASE DIAGRAM & NON-CONVERGENCE INDECES
+        if prm.perf.sets
+            indp = indp(abs(F(indp))>10^-12);  indm = indm(abs(F(indm))>10^-12);
+        else
         indp = indp(ismember(indp,index));
         indm = indm(ismember(indm,index));
+        end
         i = i+1; % Counter update
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% POST NEWTON %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,6 +109,10 @@ if nargin < 3 || isempty(flag)
     % TANGENT MATRIX & STIFFNESS MATRIX FOR K-TH ELEMENT
     C_tot = E ./ ( 1-(epsilon-eps_Lp*xisp).*dE + E.*(eps_Lp*Dxisp) );
     Ck = reshape(C_tot,length(y),length(csi),N-1);
+    if prm.perf.vec
+        KV = assemble_element_matrix(C_tot, prm.pf);
+        KFF = KV;
+    else
     Kk = zeros(4,4,N-1);
     for k = 1:N-1
         Kk(:,:,k) = b*[trapz(csi,trapz(-y,(Ck(:,:,k).*BB11))) , trapz(csi,trapz(-y,(Ck(:,:,k).*BB12))) , trapz(csi,trapz(-y,(Ck(:,:,k).*BB13))) , trapz(csi,trapz(-y,(Ck(:,:,k).*BB14)))
@@ -102,9 +127,12 @@ if nargin < 3 || isempty(flag)
     end
     K = sum(K,3);
     KFF = K(1:2*N-2,1:2*N-2);
+    end
+    if prm.perf.hist
     epsyylon = [epsyylon, epsilon];
     xysp = [xysp , xisp];
     s = [s , sigma_i];
+    end
     sigma_old = sigma_i;
     if prm.verbose
         fprintf('t = %f [s] ', T)
@@ -121,6 +149,10 @@ if nargin < 3 || isempty(flag)
         LF(ex_indp) = polyval(p,sigma_i(ex_indp))+LF_offset;
         LF(ex_indm) = polyval(p,sigma_rev - sigma_i(ex_indm))+LF_offset;
         C_d = C_tot .* LF / (2*pi*f_ref);
+        if prm.perf.vec
+            CV = assemble_element_matrix(C_d, prm.pf);
+            CFF = CV;
+        else
         C_dk = reshape(C_d,length(y),length(csi),N-1);
         C_k = zeros(4,4,N-1);
         for k = 1:N-1
@@ -135,6 +167,7 @@ if nargin < 3 || isempty(flag)
         end
         C = sum(C,3);
         CFF = C(1:2*N-2,1:2*N-2);
+        end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         xisp0(ex_indp) = xisp(ex_indp);
         xisp0(ex_indm) = xisp(ex_indm);
@@ -155,4 +188,8 @@ else
     end
     status = 0;
 end
+end
+
+function z = msk_(ix,n)
+z = false(n,1);  z(ix) = true;
 end

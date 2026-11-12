@@ -107,6 +107,33 @@ else
     xism = []; xiT = []; xysm = []; xyT = [];
 end
 
+% ---- PERFORMANCE OPTIONS (branch perf-experiments) ----
+pfo = struct('vec',1,'hist',0,'fast_rhs',1,'jac',1,'sets',1);   % defaults = fast path (see PERF_NOTES.md); cfg.perf.<flag> = 0 restores the original code path
+if isfield(cfg,'perf'), fn_ = fieldnames(cfg.perf); for k_ = 1:numel(fn_), pfo.(fn_{k_}) = cfg.perf.(fn_{k_}); end, end
+pf = [];
+if pfo.vec
+    npt = numel(csi)*numel(y);
+    wy = trapz(-y, eye(numel(y)));  wc = trapz(csi, eye(numel(csi)));
+    W = wy(:)*wc;                                   % weights of trapz(csi,trapz(-y,.))
+    BBc = {bm.BB11,bm.BB12,bm.BB13,bm.BB14, bm.BB21,bm.BB22,bm.BB23,bm.BB24, ...
+           bm.BB31,bm.BB32,bm.BB33,bm.BB34, bm.BB41,bm.BB42,bm.BB43,bm.BB44};
+    WB = zeros(npt,16);                             % column a+4*(c-1) <-> BB_ac
+    for a_ = 1:4, for c_ = 1:4, WB(:,a_+4*(c_-1)) = W(:).*BBc{4*(a_-1)+c_}(:); end, end
+    I_ = zeros(16*(N-1),1); J_ = I_;
+    for k_ = 1:N-1
+        g = zeros(4,1);
+        for a_ = 1:4, g(a_) = find(Extr(a_,:,k_)); end
+        [aa,cc] = ndgrid(1:4,1:4);
+        I_((k_-1)*16+(1:16)) = g(aa(:));  J_((k_-1)*16+(1:16)) = g(cc(:));
+    end
+    Eall = zeros(4*(N-1),2*N-2);
+    for k_ = 1:N-1, Eall(4*(k_-1)+1:4*k_,:) = Extr(:,1:2*N-2,k_); end   % rows of Extr, free dofs only
+    pf = struct('b',b,'npt',npt,'nel',N-1,'WB',WB,'I',I_,'J',J_,'ndof',2*N,'nfree',2*N-2);
+    Bfull = B*Eall;
+else
+    Bfull = [];
+end
+
 % ---- parameters handed to the OutputFcn ----
 prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ...
     'BB11',bm.BB11,'BB12',bm.BB12,'BB13',bm.BB13,'BB14',bm.BB14, ...
@@ -116,6 +143,7 @@ prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ..
     'Ea',Ea,'Emp',Emp,'ssp',ssp,'sfp',sfp,'eps_Lp',eps_Lp,'p',p,'f_ref',f_ref, ...
     'newton_maxit',cfg.numerics.newton_maxit, ...
     'verbose',cfg.numerics.verbose, ...
+    'perf',struct('vec',pfo.vec,'sets',pfo.sets,'hist',pfo.hist || cfg.post.keep_fields),'pf',pf,'Bfull',Bfull, ...
     'has_pulse',has_pulse,'t_rise',0,'t_end',0,'dt_restart',1e-5);
 if has_pulse
     prm.t_rise = cfg.load.t_rise;  prm.t_end = cfg.load.t_end;
@@ -146,7 +174,25 @@ else
 end
 
 % ---- TIME INTEGRATION (restarts whenever the OutputFcn returns status=1) ----
-rhs = @(T,X) fun_ode_1D(T,X,MFF,N);
+if pfo.fast_rhs
+    Minv = inv(MFF);
+    rhs = @(T,X) fun_ode_fast(T,X,Minv,N);
+else
+    rhs = @(T,X) fun_ode_1D(T,X,MFF,N);
+end
+if pfo.jac
+    Minv = inv(MFF);
+    jopt = {'Jacobian', @(T,X) jac_ode_fast(T,X,Minv,N)};
+    options2 = odeset(options2, jopt{:});
+    options  = odeset(options,  jopt{:});
+end
+if isfield(pfo,'solver') && ~isempty(pfo.solver), solver = pfo.solver; end
+if isfield(pfo,'abstol') && ~isempty(pfo.abstol)
+    options2 = odeset(options2,'AbsTol',pfo.abstol); options = odeset(options,'AbsTol',pfo.abstol);
+end
+if isfield(pfo,'reltol') && ~isempty(pfo.reltol)
+    options2 = odeset(options2,'RelTol',pfo.reltol); options = odeset(options,'RelTol',pfo.reltol);
+end
 solve = str2func(solver);
 tic_start = tic;
 [T,X] = solve(rhs,[T0 Tf],X0,options);
@@ -175,13 +221,15 @@ if cfg.post.shift_to_first_max
     indice = indice(1);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
-    epsyylon = epsyylon(:,indice:end);
-    xysp = xysp(:,indice:end);
-    if strcmp(model,'two_phase')
-        xysm = xysm(:,indice:end);
-        xyT = xyT(:,indice:end);
+    if pfo.hist || cfg.post.keep_fields      % field history exists only if it was recorded
+        epsyylon = epsyylon(:,indice:end);
+        xysp = xysp(:,indice:end);
+        if strcmp(model,'two_phase')
+            xysm = xysm(:,indice:end);
+            xyT = xyT(:,indice:end);
+        end
+        s = s(:,indice:end);
     end
-    s = s(:,indice:end);
 end
 
 res.TT = TT;
