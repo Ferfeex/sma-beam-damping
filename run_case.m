@@ -24,6 +24,10 @@ function res = run_case(c, varargin)
 %     'verbose'     true = original per-step printout
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
 %                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png)
+%     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
+%                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
+%                   Slow motion, 25 fps, deflection exaggerated; works for every case.
+%     'animate_opts' cell of extra name/value options for animate_beam, e.g. {'speed',0.05,'strain',false}
 %
 %   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
 %   (old value: node 9, x = res.x_midspan_node), runtime_s, cfg, peaks (time, height of midspan).
@@ -34,7 +38,7 @@ if nargin == 0
     return
 end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false,'p',[]);
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}});
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -135,11 +139,31 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
     end
     if ~show, close(f); else, drawnow; end
 end
+if ~isequal(opt.animate,false) && ~isempty(opt.animate)
+    am = opt.animate;  if islogical(am) || isnumeric(am), am = ternary_(logical(am),'play','none'); end
+    if ~any(strcmp(am,{'play','gif','both','none'})) && ~strcmp(am,'true')
+        error('run_case: option ''animate'' must be false, true, ''gif'' or ''both''');
+    end
+    if strcmp(am,'true'), am = 'play'; end
+    if ~strcmp(am,'none')
+        ao = {'show', any(strcmp(am,{'play','both'}))};
+        if any(strcmp(am,{'gif','both'}))
+            if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+            ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
+        end
+        res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
+        fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+    end
+end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
     TT = res.TT; XX = res.XX; midspan = res.midspan; midspan_node = res.midspan_node; x_midspan_node = res.x_midspan_node; peaks = res.peaks; %#ok<NASGU>
     save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','midspan_node','x_midspan_node','peaks','cfg');
 end
+end
+
+function v = ternary_(c,a,b)
+if c, v = a; else, v = b; end
 end
 
 function v = getfield_or(s,f,d)
