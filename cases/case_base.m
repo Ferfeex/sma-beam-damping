@@ -5,7 +5,7 @@ function cfg = case_base()
 %   reversal dissipates energy (loss factor eta ~ 0.14, C = eta/(2*pi*10 Hz) K).
 %   Original: Loss/FEM1D.m (+ myfun.m, fun_ode_1D.m).  Expected peaks of the mid-span
 %   displacement at x = L/2 (Hermite) after the time shift: 7.13 (t=0), 5.52, 4.17, 3.09, 2.25, 1.62 mm
-%   (the node-9 value used before 13 Nov 2026 is 0.56 % lower: 7.09, 5.49, 4.15, 3.07, 2.24, 1.61).
+%   (the node-9 value (x = 533 mm) used by earlier versions is 0.56 % lower: 7.09, 5.49, 4.15, 3.07, 2.24, 1.61).
 cfg = default_config();
 cfg.name = 'base';
 cfg.description = 'Free vibration, SMA beam 15x10 mm, ferro-elastic, loss-factor damping (Loss/FEM1D.m)';

@@ -1,5 +1,5 @@
 function ok = run_tests(mode)
-% RUN_TESTS  checks that the cleaned-up code still gives the same numbers as the original.
+% RUN_TESTS  checks that this code still gives the same numbers as the original.
 %
 %   run_tests            quick tests (~3-6 min): short runs, compared with the ORIGINAL scripts
 %   run_tests('full')    + the full 0.8 s base case and composite case (~10 min), peaks vs thesis
@@ -16,10 +16,11 @@ orig = fullfile('archive','original_case_scripts');
 nfail = 0;
 
     function check(name, cond, detail)
+        if nargin < 3, detail = ''; end
         if cond, fprintf('PASS  %s   %s\n', name, detail); else, fprintf('FAIL  %s   %s\n', name, detail); nfail = nfail + 1; end
     end
 
-% 1. composite matrices vs the ones the author saved by hand in 2020
+% 1. composite matrices vs the ones saved by hand in 2020
 ref = load(fullfile(root,'tests','reference','Matrices_composite_original.mat'));
 cfg = case_composite(); hle = composite_matrices(cfg.hle);
 d = max([max(abs(hle.MFF_HLE(:)-ref.MFF_HLE(:))./max(abs(ref.MFF_HLE(:)))), ...
@@ -36,8 +37,8 @@ r = run_case('base','Tf',Tf,'figures','none','save_mat',false);
 % 2b. field figures: plot_fields writes ONE martensite figure and ONE strain/deformation figure (no empty window)
 od = tempname(); mkdir(od); nfig0 = numel(findall(0,'type','figure'));
 rf = run_case('base','Tf',0.03,'figures','save','plot_fields',true,'save_mat',false,'outdir',od);
-check('plot_fields: <case>_fields.png and <case>_strain.png written, no figure left open', ...
-    exist(fullfile(od,'base_fields.png'),'file')==2 && exist(fullfile(od,'base_strain.png'),'file')==2 && numel(findall(0,'type','figure'))==nfig0, ...
+check('plot_fields: <case>_fields.png, <case>_strain.png and <case>_martensite_xt.png written, no figure left open', ...
+    exist(fullfile(od,'base_fields.png'),'file')==2 && exist(fullfile(od,'base_strain.png'),'file')==2 && exist(fullfile(od,'base_martensite_xt.png'),'file')==2 && numel(findall(0,'type','figure'))==nfig0, ...
     sprintf('(%d figures open)', numel(findall(0,'type','figure'))));
 
 % 2c. mid-span value: deflection at exactly x = L/2 (Hermite) - consistent with the strain_figure shape, the
@@ -88,6 +89,49 @@ check('run_case(''animate'',''gif''): results/<case>_animation.gif written', exi
 rl = run_case('hle_linear','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate','gif','animate_opts',{'verbose',false});
 check('animation of a linear case (strain from B*u, no field history)', exist(fullfile(od,'hle_linear_animation.gif'),'file')==2 && rl.animation.nframes > 5, sprintf('%d frames', rl.animation.nframes));
 
+% 2e. looping GIFs, comparison animation, martensite snapshots / maps, dashboard
+%     (a) every GIF carries the NETSCAPE loop block (gif_write); gif_ensure_loop repairs a GIF without it
+fid_ = fopen(gf,'rb'); bb_ = fread(fid_,Inf,'uint8=>uint8').'; fclose(fid_);
+loopblk_ = [uint8([33 255 11]) uint8('NETSCAPE2.0') uint8([3 1 0 0 0])];
+check('animate_beam GIF contains the NETSCAPE loop block (loop forever)', ~isempty(strfind(char(bb_),char(loopblk_))));
+gn_ = fullfile(od,'noloop.gif');  i_ = strfind(char(bb_),char(loopblk_));
+fid_ = fopen(gn_,'wb'); fwrite(fid_,[bb_(1:i_(1)-1) bb_(i_(1)+numel(loopblk_):end)],'uint8'); fclose(fid_);
+added_ = gif_ensure_loop(gn_);  inn_ = imfinfo(gn_);
+check('gif_ensure_loop inserts the loop block into a GIF without it (still a valid GIF)', added_ && inn_(1).LoopCount == 0 && numel(inn_) == numel(inf_) && ~gif_ensure_loop(gn_));
+%     (b) martensite snapshots do not change the solution; about 100 of them; shifted like TT
+cs_ = case_base(); cs_.time.Tf = 0.1; cs_.post.n_snapshots = 100;
+rs_ = run_case(cs_,'figures','none','save_mat',false);
+r0_ = run_case('base','Tf',0.1,'figures','none','save_mat',false);
+check('snapshots (cfg.post.n_snapshots) leave the solution bit-identical', isequal(rs_.XX,r0_.XX) && isequal(rs_.midspan,r0_.midspan) && ~isfield(r0_,'snapshots'));
+ns_ = numel(rs_.snapshots.t);
+check('snapshots: ~100 evenly spaced times within the shifted run, fractions in [0,1]', ns_ > 60 && ns_ <= 100 && all(diff(rs_.snapshots.t) > 0) && rs_.snapshots.t(1) >= 0 && rs_.snapshots.t(end) <= rs_.TT(end)+1e-12 ...
+    && size(rs_.snapshots.xisp,1) == 750 && min([rs_.snapshots.xisp(:); rs_.snapshots.xism(:)]) >= 0 && max(rs_.snapshots.xiT(:)) <= 1+1e-12, sprintf('%d snapshots', ns_));
+rf2_ = run_case('base','Tf',0.1,'figures','none','save_mat',false,'plot_fields',true);
+check('last snapshot == fields of the last step (xi_s+, xi_s-, xi_T)', isfield(rf2_,'snapshots') && abs(rf2_.snapshots.t(end) - rf2_.TT(end)) < 0.03*rf2_.TT(end) ...
+    && max(abs(rf2_.snapshots.xisp(:,end) - rf2_.fields.xysp(:,end))) < 0.05*max(rf2_.fields.xysp(:,end)));
+%     (c) static x-t map and the fields animation
+fx_ = figure('visible','off'); martensite_xt(rs_, cs_, fx_); fnx_ = fullfile(od,'xt_test.png'); print(fx_,'-dpng','-r60',fnx_); close(fx_);
+Mxt_ = snapshot_fields(rs_,cs_,'xisp','mean');
+check('martensite_xt: figure drawn and saved; section average of xi_s+ is non-negative, grows in time at mid-span', exist(fnx_,'file')==2 && all(Mxt_(:) >= 0) && Mxt_(end,round(end/2)) > Mxt_(1,round(end/2)), sprintf('mid-span %.2e -> %.2e', Mxt_(1,round(end/2)), Mxt_(end,round(end/2))));
+gfl_ = fullfile(od,'fields_test.gif');
+af_ = animate_fields(rf2_, rf2_.cfg, 'gif', gfl_, 'step', 3, 'verbose', false);
+inf2_ = imfinfo(gfl_);
+check('animate_fields: GIF written with one frame per (3rd) snapshot, loops forever', numel(inf2_) == af_.nframes && af_.nframes == numel(1:3:numel(rf2_.snapshots.t)) && inf2_(1).LoopCount == 0, sprintf('%d frames, %.0f kB', af_.nframes, dir_bytes(gfl_)/1e3));
+%     (d) SMA vs linear comparison animation
+rc_ = run_case('base','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate_compare','gif','animate_opts',{'speed',0.2,'verbose',false});
+inf3_ = imfinfo(fullfile(od,'base_animation_compare.gif'));
+check('run_case(''animate_compare'',''gif''): results/<case>_animation_compare.gif written, loops, linear reference run', numel(inf3_) == rc_.animation_compare.nframes && inf3_(1).LoopCount == 0 && isfield(rc_,'reference') && rc_.animation_compare.nframes > 5, sprintf('%d frames', numel(inf3_)));
+%     (e) dashboard: tab buttons and panels built, switching works (needs uipanel: Octave Qt / MATLAB)
+if dashboard_supported()
+    fdb_ = dashboard(rf2_, rf2_.cfg, [], 'visible', false);
+    dd_ = getappdata(fdb_,'dash');
+    dashboard_select(fdb_,numel(dd_.names));
+    check('dashboard: tabs Deflection / Strain / Martensite, only the selected panel visible', numel(dd_.names) == 4 && strcmp(get(dd_.panels(end),'visible'),'on') && strcmp(get(dd_.panels(1),'visible'),'off') && get(dd_.buttons(end),'value') == 1, strjoin(dd_.names,' | '));
+    close(fdb_);
+else
+    fprintf('SKIP  dashboard (graphics toolkit without uipanel)\n');
+end
+
 % 3. global state is reset between runs: same case twice in one session -> identical
 r2 = run_case('base','Tf',Tf,'figures','none','save_mat',false);
 check('re-run in the same session identical', isequal(r.XX,r2.XX), sprintf('max |dXX| = %g', max(abs(r.XX(:)-r2.XX(:)))));
@@ -120,7 +164,7 @@ if strcmp(mode,'full')
     % 7. full base case: peaks vs thesis Fig. 4.3 and the stored reference run of the Octave port
     r = run_case('base','figures','save','save_mat',false);
     pk = r.peaks(:,2)';
-    expect = [7.13 5.52 4.17 3.09 2.25 1.62];   % deflection at x = L/2 (Hermite), corrected (||) Newton loop; node 9 (before 13 Nov 2026) gave 7.09 5.49 4.15 3.07 2.24 1.61
+    expect = [7.13 5.52 4.17 3.09 2.25 1.62];   % deflection at x = L/2 (Hermite), corrected (||) Newton loop; node 9 (x = 533 mm, used by earlier versions) gives 7.09 5.49 4.15 3.07 2.24 1.61
     check('base full run: ring-down peaks', numel(pk) >= 6 && all(abs(pk(1:6)-expect) < 0.02), ...
         sprintf('peaks [mm]: %s (expected %s; thesis Fig. 4.3: ~5.5 4.15 3.1 2.2 1.6 after the first)', mat2str(pk(1:min(6,end)),3), mat2str(expect)));
     r = run_case('composite','figures','save','save_mat',false);
@@ -135,7 +179,7 @@ d = dir(f); b = d.bytes;
 end
 
 function [same,detail] = compare_runs(o,r,tol)
-if nargin < 3, tol = 1e-5; end   % relative to max|X|; round-off level (the fast path of 2026 sums in a different order, see PERF_NOTES.md)
+if nargin < 3, tol = 1e-5; end   % relative to max|X|; round-off level (the fast path sums in a different order, see PERF_NOTES.md)
 % o: original (TT,XX); r: refactored result
 if numel(o.TT) ~= numel(r.TT)
     same = false; detail = sprintf('different number of steps: original %d, new %d', numel(o.TT), numel(r.TT)); return

@@ -32,7 +32,7 @@ for k = 1:numel(S.C)
 end
 check('case selection toggles p fields / compare for linear cases', okall);
 set(H.list,'value',4); sma_gui('select',fig);
-check('pulse case: estimate shown, no "very slow" warning since the 2026 speed-up', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
+check('pulse case: estimate shown, no "very slow" warning with the fast code path', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
 set(H.list,'value',5); sma_gui('select',fig);
 check('SE case: p_SE.mat loaded (4 coefficients, 5th field disabled)', strcmp(get(H.pe(5),'enable'),'off') && ~isempty(get(H.pe(4),'string')));
 set(H.list,'value',1); sma_gui('select',fig);
@@ -86,7 +86,7 @@ setappdata(fig,'LastResult',[]); sma_gui('run',fig);
 check('field plot run (save only) finished', ~isempty(getappdata(fig,'LastResult')) && exist(fullfile(root,'results','base_fields.png'),'file')==2 && exist(fullfile(root,'results','base_strain.png'),'file')==2);
 
 % --- run 5: animation: checkboxes 'Animate beam' + 'Save GIF' ----------------------------------------------------------
-check('checkboxes "Animate beam" and "Save GIF" exist', ishandle(H.anim) && ishandle(H.gif) && strcmp(get(H.anim,'string'),'Animate beam') && strcmp(get(H.gif,'string'),'Save GIF'));
+check('checkboxes for the animations (beam, SMA vs linear, martensite), Save GIF and the dashboard exist', ishandle(H.anim) && ishandle(H.canim) && ishandle(H.fanim) && ishandle(H.gif) && ishandle(H.dash) && strcmp(get(H.gif,'string'),'Save GIF'));
 gfile = fullfile(root,'results','base_animation.gif');  if exist(gfile,'file'), delete(gfile); end
 set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.03'); set(H.figs,'value',3);
 set(H.gif,'value',1); set(H.anim,'value',0); setappdata(fig,'LastResult',[]);
@@ -99,6 +99,35 @@ sma_gui('run',fig); r6 = getappdata(fig,'LastResult');
 check('Animate beam only: plays in a window, no GIF file', ~isempty(r6) && isfield(r6,'animation') && isempty(r6.animation.gif) && exist(gfile,'file')~=2 && numel(findobj(0,'type','figure')) > nfig1);
 close(setdiff(findobj(0,'type','figure'), fig));
 set(H.anim,'value',0); set(H.gif,'value',0);
+
+% --- run 6: dashboard (default) vs separate windows; comparison + martensite animations from the window ------------------------
+set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.07'); set(H.fld,'value',1); set(H.cmp,'value',1); set(H.figs,'value',2);   % show only
+check('dashboard checkbox is on by default', get(H.dash,'value') == 1);
+close(setdiff(findobj(0,'type','figure'), fig));
+setappdata(fig,'LastResult',[]); sma_gui('run',fig); r7 = getappdata(fig,'LastResult');
+nd = numel(findobj(0,'tag','sma_dashboard'));  nall = numel(findobj(0,'type','figure'));
+check('One window (tabs): a single dashboard window instead of separate result windows', ~isempty(r7) && nd == 1 && nall == 2, sprintf('%d dashboard, %d figures in all', nd, nall));
+if ~isempty(shotdir) && nd == 1
+    dd = getappdata(r7.dashboard,'dash'); dashboard_select(r7.dashboard,numel(dd.names)); figure(r7.dashboard); drawnow; pause(1);
+    [st,out] = system('xdotool search --name "results" | head -1'); wid = strtrim(out);
+    if st==0 && ~isempty(wid)
+        [~,g] = system(sprintf('xdotool getwindowgeometry --shell %s',wid));
+        system(sprintf('/usr/bin/python3 %s %s %s "%s"', fullfile(fileparts(mfilename('fullpath')),'xshot.py'), getenv('DISPLAY'), fullfile(shotdir,'gui_dashboard.png'), strtrim(strrep(g,sprintf('\n'),' '))));
+    end
+end
+close(setdiff(findobj(0,'type','figure'), fig));
+set(H.dash,'value',0); setappdata(fig,'LastResult',[]); sma_gui('run',fig); r8 = getappdata(fig,'LastResult');
+check('One window unticked: separate windows as before', ~isempty(r8) && numel(findobj(0,'tag','sma_dashboard')) == 0 && numel(findobj(0,'type','figure')) >= 4);
+close(setdiff(findobj(0,'type','figure'), fig));
+set(H.dash,'value',1); set(H.cmp,'value',0); set(H.fld,'value',0); set(H.figs,'value',3);
+set(H.canim,'value',1); set(H.fanim,'value',1); set(H.gif,'value',1); set(H.anim,'value',0);
+gc = fullfile(root,'results','base_animation_compare.gif'); gfl = fullfile(root,'results','base_fields_animation.gif');
+if exist(gc,'file'), delete(gc); end;  if exist(gfl,'file'), delete(gfl); end
+setappdata(fig,'LastResult',[]); sma_gui('run',fig); r9 = getappdata(fig,'LastResult');
+check('SMA vs linear + martensite animations with Save GIF: both GIF files written', ~isempty(r9) && exist(gc,'file')==2 && exist(gfl,'file')==2 && isfield(r9,'animation_compare') && isfield(r9,'animation_fields'));
+if exist(gc,'file'), delete(gc); end;  if exist(gfl,'file'), delete(gfl); end
+close(setdiff(findobj(0,'type','figure'), fig));
+set(H.canim,'value',0); set(H.fanim,'value',0); set(H.gif,'value',0);
 
 close all
 if nfail == 0, fprintf('\nALL GUI TESTS PASSED\n'); else, fprintf('\n%d GUI TEST(S) FAILED\n',nfail); end

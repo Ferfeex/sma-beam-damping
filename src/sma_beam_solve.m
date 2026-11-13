@@ -20,6 +20,7 @@ function res = sma_beam_solve(cfg)
 global KFF CFF LF FF FFF
 global xisp xism xiT xisp0 xism0 xiT0 indp_old indm_old sigma_old s p1 m1 tt yy
 global epsyylon xysp xysm xyT sigma0 epsilon0
+global snap_n snap_ns snap_gi snap_grid snap_T snap_P snap_M snap_Tm   % optional snapshots of the martensite fractions (cfg.post.n_snapshots)
 p1 = []; m1 = []; tt = []; yy = [];
 FF = []; FFF = 0;
 sigma0 = []; epsilon0 = [];
@@ -140,6 +141,15 @@ histmode = pfo.hist;
 if cfg.post.keep_fields && histmode == 0, histmode = 2; end
 if isfield(cfg.post,'keep_field_history') && cfg.post.keep_field_history, histmode = 1; end
 
+% ---- snapshots of the martensite fractions at ~cfg.post.n_snapshots evenly spaced times (default 0 = off) ----
+% The OutputFcn copies xi_s+, xi_s-, xi_T into preallocated arrays at the first accepted step at or after each
+% grid time: ~100 copies of 750 x 3 numbers, i.e. no measurable cost, and the solution is not touched.
+% (The fractions are history dependent - hysteresis - so they cannot be rebuilt afterwards from the displacements.)
+snap_n = 0;
+if isfield(cfg.post,'n_snapshots'), snap_n = cfg.post.n_snapshots; end
+snap_ns = 0;  snap_gi = 1;  snap_grid = linspace(T0,Tf,max(snap_n,1));
+snap_T = zeros(1,snap_n);  snap_P = zeros(nip,snap_n);  snap_M = zeros(nip*strcmp(model,'two_phase'),snap_n);  snap_Tm = snap_M;
+
 % ---- parameters handed to the OutputFcn ----
 prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ...
     'BB11',bm.BB11,'BB12',bm.BB12,'BB13',bm.BB13,'BB14',bm.BB14, ...
@@ -221,7 +231,7 @@ end
 
 % ---- MID-SPAN VERTICAL DISPLACEMENT ----
 % res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite through nodes 8 and 9 for N = 16, see
-% midspan_deflection.m). Before 13 Nov 2026 the value of node 9 (x = 533 mm) was used; it is kept as
+% midspan_deflection.m). Earlier versions used the value of node 9 (x = 533 mm); it is kept as
 % res.midspan_node (column res.col of XX, position res.x_midspan_node).
 [midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
 col = mi.col;
@@ -229,6 +239,7 @@ if cfg.post.shift_to_first_max
     % the time axis starts at the first (largest) mid-span maximum, as in the original
     indice = find(midspan == max(midspan));
     indice = indice(1);
+    t_shift = TT(indice);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
     midspan = midspan(indice:end);  midspan_node = midspan_node(indice:end);
@@ -243,6 +254,12 @@ if cfg.post.shift_to_first_max
     end
 end
 
+if ~exist('t_shift','var'), t_shift = 0; end
+if snap_ns > 0                            % martensite fractions at the sampled times (time axis shifted like TT)
+    keep = find(snap_T(1:snap_ns) >= t_shift);
+    res.snapshots = struct('t',snap_T(keep)-t_shift, 'xisp',snap_P(:,keep), 'xism',snap_M(:,keep), 'xiT',snap_Tm(:,keep), ...
+        'N',N,'n_csi',numel(csi),'n_y',numel(y));
+end
 res.TT = TT;
 res.XX = XX;
 res.col = col;

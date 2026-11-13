@@ -21,7 +21,7 @@ sigma_s_cr_p = 0; %[MPa]
 sigma_f_cr_p = 188;%180; %[MPa]
 sigma_s_cr_n = 0;
 sigma_f_cr_n = -220;%-180;
-% [2026 cleanup] thesis Table 3.2 values. The stored 2020 file had 0.0086 / -0.00746, which do not
+% [changed from the original] thesis Table 3.2 values. The stored 2020 file had 0.0086 / -0.00746, which do not
 % reproduce the thesis loss-factor curve (Fig. 2.28).
 eps_L_p = 0.016;     % was 0.0086
 eps_L_n = -0.0146;   % was -0.00746
@@ -35,7 +35,7 @@ xisp = 0;
 xism = 0;
 xiT = 0;
 %%%%%%%%%% EPS REVERSAL INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% [2026 cleanup] vector of reversal amplitudes 0.1 % ... 2.5 % (thesis Fig. 2.28 abscissa), reconstructed:
+% [changed from the original] vector of reversal amplitudes 0.1 % ... 2.5 % (thesis Fig. 2.28 abscissa), reconstructed:
 % the stored file had the single value 0.025, which makes the polynomial fit degenerate.
 eps_upp = 0.001:0.001:0.025;   % was 0.025
 %%%%%%%%%% EPS REVERSAL INPUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -171,13 +171,13 @@ grid on
 title('Ferro-Elasticity')
 % EPSILON_REV - LOSS_FACTOR
 p = polyfit(eu,Loss_factor(2:end),4)
-% [2026 cleanup] the original never saved p (data/p.mat was saved by hand). It is now written to
+% [changed from the original] the original never saved p (data/p.mat was saved by hand). It is now written to
 % results/p_regen.mat; the SHIPPED data/p.mat (the original one) is NOT overwritten.
 % To use the regenerated curve:  cfg = case_base(); cfg.p_file = fullfile('results','p_regen.mat');
 here = fileparts(mfilename('fullpath'));
 if ~exist(fullfile(here,'..','results'),'dir'), mkdir(fullfile(here,'..','results')); end
 save(fullfile(here,'..','results','p_regen.mat'),'p');
-xx = linspace(0,max(eps_upp),1000);   % [2026 cleanup] max(): eps_upp is now a vector
+xx = linspace(0,max(eps_upp),1000);   % [changed from the original] max(): eps_upp is now a vector
 yy = p(1)*xx.^4+p(2)*xx.^3+p(3)*xx.^2+p(4)*xx.^1+p(5);
 figure
 plot(xx*100,yy,'LineWidth',2)

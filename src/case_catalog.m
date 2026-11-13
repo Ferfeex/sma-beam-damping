@@ -6,7 +6,7 @@ function C = case_catalog()
 %   text       cell array of description lines
 %   t_ref      estimated runtime of the full default duration [s], GNU Octave, 1 core
 %   Tf_def     default duration of the case [s]
-%   slow       true if a default run takes more than ~20 min (none at the moment since the 2026 speed-up)
+%   slow       true if a default run takes more than ~20 min (none at the moment, thanks to the fast code path)
 %   model      'two_phase' | 'one_phase_SE' | 'linear'
 %   p_file     file in data/ with the loss-factor polynomial ('' for linear cases)
 %   x_ref      damping.x_ref of the case (strain, or stress for the SE case)
@@ -27,11 +27,11 @@ rows = {
  'pulse', 'Force pulse on the SMA beam (200 N / 0.02 s)', 115, false, {
    'Rectangular force pulse on the 30 x 20 mm SMA beam, starting at rest'
    '(thesis 3.3.2, Fig. 3.23). About 2 minutes in Octave with the fast code path'
-   '(it took hours before the 2026 speed-up; 64000 solver steps).'}
+   '(it takes hours without the fast code path; 64000 solver steps).'}
  'prestrain_se', 'Pre-stressed super-elastic beam (60 MPa)', 45, false, {
    'SMA beam 30 x 20 mm above Af, pre-stressed with 60 MPa, one martensite'
    'fraction (thesis 3.3.3). The loss factor is a function of STRESS (p_SE.mat).'
-   'Under a minute in Octave with the fast code path (hours before the 2026 speed-up).'}
+   'Under a minute in Octave with the fast code path (hours without the fast code path).'}
  'linear_pulse_incremental', 'Linear GFRP beam, ramp load pulse', 17, false, {
    'Linear GFRP beam (E = 46 GPa), force ramps up to 50 N at t = 0.033 s and is'
    'then released (thesis 3.2, Fig. 3.21). The force term is inferred (KNOWN_ISSUES).'}

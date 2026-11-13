@@ -8,7 +8,7 @@ function [wm, w_node, info] = midspan_deflection(XX, N, L)
 %             that bracket L/2 (nodes 8 and 9 for N = 16). If a node sits exactly at L/2 (N odd) its
 %             deflection is returned.
 %     w_node  the OLD "mid-span" value: deflection of one node near the middle (node N/2+1 = 9 for N = 16,
-%             x = 533 mm, which is what the original code and all results before 13 Nov 2026 used)
+%             x = 533 mm, which is what the original code and earlier versions of this code used)
 %     info    struct: .x_node, .node (index), .col (column in XX of that node's deflection),
 %             .elem, .s (position of L/2 inside the bracketing element, 0..1), .nodes (bracketing nodes)
 %

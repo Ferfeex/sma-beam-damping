@@ -1,7 +1,7 @@
 # sma-beam-damping
 
 Finite-element simulation of the **vibration and damping of a shape-memory-alloy (SMA) beam**,
-written in MATLAB for a master's thesis and cleaned up here so that it runs in **GNU Octave**
+written in MATLAB for a master's thesis and ported here so that it runs in **GNU Octave**
 (and still in MATLAB).
 
 > Federico Aghito, *Theoretical and numerical modeling of Shape Memory Alloy based structures and
@@ -55,8 +55,8 @@ run_case             % opens the start window: choose the case, change p, tick t
 ![Start window](docs/gui_screenshot.png)
 
 * **Case list** with a description and the estimated runtime of each case. A case whose estimate
-  exceeds ~20 min would be flagged in red and ask for confirmation before it starts (none at the moment since
-  the 2026 speed-up; with a long `Tf` the estimate scales and the warning can still appear).
+  exceeds ~20 min would be flagged in red and ask for confirmation before it starts (none at the moment, thanks to the
+  fast code path; with a long `Tf` the estimate scales and the warning can still appear).
 * **Loss-factor coefficients p1..p5** (eta = p1 x^4 + ... + p5, x = strain as a fraction, 0.01 = 1 %), pre-filled from the
   case's own file (`data/p.mat`, or `data/p_SE.mat` for the super-elastic case). Edit any of them and the
   small plot shows the default curve (dashed) against yours (red); **Reset to default** brings them back.
@@ -64,10 +64,12 @@ run_case             % opens the start window: choose the case, change p, tick t
   get the suffix `_pmod` (e.g. `results/base_pmod_midspan.png`) so the default-p files stay untouched.
   The fields are disabled for the linear cases (no loss factor there).
 * **Final time Tf** (blank = the case default), **Compare with linear beam** (overlays the linear
-  reference), **Plot fields** (strain / martensite fraction over the beam), and **Figures**
-  (show and save PNG / show only / save only / none).
-* **Run** starts the simulation (the command window shows the progress); afterwards the mid-span
-  displacement plot opens, and the status line lists the first ring-down peaks. Inputs are checked
+  reference), **Plot fields** (strain / martensite fraction over the beam, and martensite versus time),
+  **Animate** (beam / SMA vs linear / martensite) with **Save GIF**, **One window (tabs)** (the result plots in a
+  single dashboard window; untick for separate windows) and **Figures** (show and save PNG / show only /
+  save only / none).
+* **Run** starts the simulation (the command window shows the progress); afterwards the results window
+  (dashboard, see below) opens, and the status line lists the first ring-down peaks. Inputs are checked
   (numbers, Tf > 0) with a message that says what is wrong. Without a display (e.g. over ssh) a
   text menu is shown instead.
 
@@ -94,14 +96,14 @@ visually the same as in MATLAB but not bit-identical.
 
 | `run_case(...)` | What | Runtime in Octave (1 core) |
 |---|---|---|
-| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~10 s (9 s measured, 5100 steps; 433 s before the 2026 speed-up) |
+| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~10 s (9 s measured, 5100 steps; 433 s without the fast code path) |
 | `'hle_linear'` | Linear reference beam, E = 26 GPa, Rayleigh 1.3 % | 2 s |
-| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~2 s (1.5 s measured; 53 s before) |
+| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~2 s (1.5 s measured; 53 s without the fast code path) |
 | `'linear_pulse_incremental'`, `'linear_pulse_rectangular'` | Linear GFRP beam under a ramp / rectangular load pulse | 17 s |
-| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | ~2 min (112 s measured, 64000 steps; hours before the 2026 speed-up) |
-| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | ~45 s (41 s measured, 20800 steps; hours before the 2026 speed-up) |
+| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | ~2 min (112 s measured, 64000 steps; hours without the fast code path) |
+| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | ~45 s (41 s measured, 20800 steps; hours without the fast code path) |
 
-Timings: GNU Octave 10.3 on a Linux box, 1 core; a laptop will differ. The 2026 speed-up
+Timings: GNU Octave 10.3 on a Linux box, 1 core; a laptop will differ. The fast code path
 (`PERF_NOTES.md`: vectorised assembly, analytic Jacobian, no per-step history; same solver, same
 tolerances, same physics) made `pulse` and `prestrain_se` practical. The shortened runs equal the
 original scripts to a relative 1e-5 (`tests/run_tests.m`). **Results match to rounding level**: same step
@@ -125,10 +127,10 @@ starting at the first maximum):
 values of thesis Fig. 4.3: about 5.5, 4.15, 3.1, 2.2, 1.6 mm.)
 
 *Which point is "mid-span"?* With N = 16 nodes (15 elements) there is no node at x = L/2: the nodes 8 and 9 sit at
-x = 467 and 533 mm. Until 12 Nov 2026 the code reported the deflection of node 9 (x = 533 mm). Now `res.midspan`
+x = 467 and 533 mm. Earlier versions reported the deflection of node 9 (x = 533 mm). `res.midspan`
 is the deflection at exactly x = 500 mm, obtained with the cubic Hermite shape functions of the beam element from
 w and theta of nodes 8 and 9 (`src/midspan_deflection.m`); for mode 1 it is 0.56 % larger. The old node value is
-kept as `res.midspan_node` (position `res.x_midspan_node` = 533 mm, column `res.col` of `res.XX`). The old peaks
+kept as `res.midspan_node` (position `res.x_midspan_node` = 533 mm, column `res.col` of `res.XX`). The node-9 peaks
 were 7.09, 5.49, 4.15, 3.07, 2.24, 1.61 mm. (The force of the `pulse` cases is still applied symmetrically around node 9,
 see `KNOWN_ISSUES.md` #9.)
 
@@ -170,6 +172,51 @@ The GIF writer is pure Octave/MATLAB (`imwrite(...,'gif','DelayTime',...,'LoopCo
 no external tool needed. Octave needs the GraphicsMagick-enabled `imwrite` (the Windows installer has it; Octave prints a harmless
 "limits images to 8 bits per pixel" warning) - the code asks for LZW compression, without which Octave's GIFs are ~10x larger.
 
+### Looping GIFs, SMA vs linear, martensite evolution and the dashboard
+
+```octave
+run_case('base','animate_compare','gif')              % results/base_animation_compare.gif: SMA beam and linear beam together
+run_case('base','animate_fields','gif')               % results/base_fields_animation.gif: martensite fractions over time
+run_case('base','plot_fields',true)                   % + results/base_martensite_xt.png (martensite versus time and position)
+run_case('base','compare_hle',true,'plot_fields',true,'figures','both')   % one dashboard window with tabs, PNGs saved too
+run_case('base','figures','show','dashboard',false)   % the old separate windows
+```
+
+* **GIFs loop forever.** Every GIF written by the code (`src/gif_write.m`) carries the NETSCAPE loop block; if the image
+  library leaves it out, `gif_ensure_loop` inserts it. (Some viewers, e.g. the Windows photo viewer, ignore the loop setting
+  and show a GIF once; browsers, GitHub, PowerPoint and VLC loop it.)
+* **SMA vs linear beam** (`'animate_compare'`, `src/animate_compare.m`): both beams overlaid on the same axes with the same
+  deflection scale (SMA blue, linear reference red) and both mid-span time histories with a moving marker each. It runs the
+  linear reference (`hle_linear`) itself if `compare_hle` is not set. Values for `'animate_compare'`: `true` (window), `'gif'`, `'both'`.
+
+![SMA beam against the linear beam](docs/base_animation_compare.gif)
+
+*10x slow motion, deflection x20; the linear beam (red) decays much more slowly than the SMA beam (blue) (`docs/base_animation_compare.gif`, 2.1 MB).*
+
+* **Martensite evolution.** The martensite fractions depend on the load history (hysteresis), so they cannot be rebuilt from
+  the displacements afterwards; `sma_beam_solve` therefore copies xi_s+, xi_s-, xi_T at ~100 evenly spaced times while it
+  solves (`cfg.post.n_snapshots`, `res.snapshots`; 750 x 3 numbers each, no measurable cost, the solution is bit-identical,
+  and the `cfg.perf` flags still work). `plot_fields` and `animate_fields` switch it on. It works for the base and the composite
+  case; the super-elastic pre-strain case has one fraction (xi_s+).
+  * `'plot_fields',true` also saves `results/<case>_martensite_xt.png` (`src/martensite_xt.m`): one colour map per fraction,
+    position along the beam horizontally, time vertically, averaged over the section thickness (`martensite_xt(res,cfg,fig,'fibre','top')`
+    for an outer fibre, also `'bottom'`, `'max'`).
+  * `'animate_fields'` (`true`, `'gif'`, `'both'`; `src/animate_fields.m`) animates the three maps of the final-time figure over
+    length x thickness with fixed colour limits and the mid-span history below (extra options in `'fields_opts'`, e.g.
+    `{'step',2}` for fewer frames; `docs/base_fields_animation.gif`).
+
+![Martensite versus time and position](docs/base_martensite_xt.png)
+
+*Base case: the martensite fractions accumulate where the strain is largest (mid-span), cycle after cycle.*
+
+* **Dashboard** (`src/dashboard.m`). With `'figures'` = `'show'` or `'both'` (and in the start window) the plots are collected in
+  one window with a row of tab buttons: Deflection, SMA vs linear (with `compare_hle`), Strain and Martensite (final) (with `plot_fields`,
+  two-phase models), Martensite (t, x). The PNG files are written exactly as before. GNU Octave 10.3 has no `uitabgroup`, so the tabs are
+  toggle buttons that switch `uipanel`s, which works in the Octave Qt toolkit and in MATLAB; with the gnuplot / FLTK toolkits `run_case`
+  falls back to separate windows (`'dashboard',false` forces them). Animations open in their own windows.
+
+![Dashboard](docs/dashboard_screenshot.png)
+
 ![Loss factor fit](docs/loss_factor_fit.png)
 
 *Loss factor eta versus reversal strain computed from Brinson cycles, and its polynomial fit.*
@@ -191,6 +238,8 @@ src/                    the solver
   composite_matrices.m  matrices of the GFRP skins (was Composite_matrices.m + hand-saved Matrices.mat)
   initial_velocity.m    initial half-sine velocity field
   meshare.m             field plots (optional)
+  animate_beam.m, animate_compare.m, animate_fields.m   animations (+ gif_write.m, gif_ensure_loop.m ... GIF helpers)
+  martensite_xt.m, dashboard.m   martensite versus time and position; the tabbed results window
   smooth_mean2d.m       moving-average smoothing used by meshare.m
   case_catalog.m        list of cases with descriptions, runtime estimates, p file (feeds the window)
 brinson/                material level (thesis chapter 2): Brinson model, phase diagram, super-elasticity,
@@ -200,9 +249,9 @@ compat/octave/          ode23t stand-in for Octave
 tests/                  run_tests.m: refactored code vs the original 2020 scripts; test_gui.m: the start window
 tools/                  make_loss_factor_figure.m
 LICENSE                 MIT
-docs/                   figures; CODE_MAP_original_analysis.md = the original code map (before the cleanup)
+docs/                   figures; CODE_MAP_original_analysis.md = the map of the original code
 archive/                older attempts (not maintained), see archive/README.md
-CLEANUP_REPORT.md       what was kept / moved / removed / changed, and the verification
+CHANGES.md              what differs from the original thesis code (kept / moved / removed / changed) and the verification
 KNOWN_ISSUES.md         bugs and oddities of the original code
 ```
 
@@ -223,9 +272,9 @@ A force pulse: `cfg = case_pulse(); cfg.load.F_element = -50;` (nodal force per 
 
 To regenerate the loss-factor curve instead of using the shipped one:
 `run('brinson/Tension_compression_parametric.m')` writes `results/p_regen.mat`, then
-`cfg.p_file = fullfile('results','p_regen.mat')`. This is an alternative only: the default stays the author's
-original `data/p.mat`, which matches the thesis best (the regenerated curve is lower at small strain, see
-`CLEANUP_REPORT.md` and `docs/loss_factor_fit.png`).
+`cfg.p_file = fullfile('results','p_regen.mat')`. This is an alternative only: the default stays the original
+`data/p.mat`, which matches the thesis best (the regenerated curve is lower at small strain, see
+`CHANGES.md` and `docs/loss_factor_fit.png`).
 
 ## Tests
 
@@ -233,6 +282,8 @@ original `data/p.mat`, which matches the thesis best (the regenerated curve is l
 cd tests; run_tests            % quick (~2.5 min): short runs of every case equal to the original scripts within a relative 1e-5 (round-off)
 run_tests('full')              % + the full base and composite runs, peaks versus the thesis
 ```
+
+`run_tests` also covers the looping GIFs, the martensite snapshots, the xt map, the fields and comparison animations and the dashboard.
 
 The start window has its own automatic test (it opens the window, sets values programmatically and
 presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --no-gui --eval "cd tests; test_gui"`).
@@ -248,17 +299,18 @@ presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --n
   Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.
 * The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
   a MATLAB run (a MATLAB run of the original code was not available).
-* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; the cleaned code uses `||`
-  (effect on the results < 1 %, see `KNOWN_ISSUES.md` #1). Several smaller issues of the original are listed there too.
+* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; this code uses `||`
+  (effect on the results < 1 %, see `KNOWN_ISSUES.md` #1 and `CHANGES.md`). Several smaller issues of the original are listed there too.
 * The force term of the linear transient case was lost in the original files and is inferred.
 
 ## Roadmap
 
 1. ~~Interactive menu~~ **done**: `run_case` opens a start window (case, p coefficients, linear comparison, Tf, figures). Still open: load type / force / frequency fields, and a low-resolution quick mode.
-2. **Post-run beam animation**: animate from the saved displacements after the run (not during the
-   solve), colour the beam by phase fraction or stress, export a GIF for this README.
-3. Speed: analytic Jacobian, other solver; save each run with its settings; compare two runs on one plot.
-4. **Someday**: a 3D beam (2 -> 6 degrees of freedom per node) needs a 3D constitutive law such as
+2. ~~Post-run beam animation~~ **done** (beam, SMA vs linear, martensite fractions; looping GIFs; results dashboard).
+3. Forced vibration and frequency response in the start window.
+4. Design charts: how much SMA is needed for a given damping.
+5. Other shapes and boundary conditions; comparison against real tests; other constitutive models.
+6. **Someday**: a 3D beam (2 -> 6 degrees of freedom per node) needs a 3D constitutive law such as
    Lagoudas or Souza-Auricchio with its own return-mapping solver. Keeping Brinson and adding bending
    in two directions is a possible intermediate step.
 

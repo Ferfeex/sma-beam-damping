@@ -27,7 +27,8 @@ function out = animate_beam(res, cfg, varargin)
 %     'verbose'      true
 %   Returns out: .gif (file), .nframes, .t (frame times), .exaggeration, .speed, .fps, .runtime_s, .frame_size
 %
-%   GIF writing is pure Octave/MATLAB (imwrite 'gif', 'DelayTime', 'LoopCount'); the frames are quantised
+%   GIF writing is pure Octave/MATLAB (src/gif_write.m: imwrite 'gif', 'DelayTime', 'LoopCount' = Inf, so the
+%   GIF loops forever); the frames are quantised
 %   to one common 256-colour palette. No external tool is needed. In Octave imwrite uses GraphicsMagick
 %   (shipped with the Windows installer).
 t_start = tic;
@@ -132,15 +133,15 @@ if dogif
     ns = min(nfr,7); sidx = unique(round(linspace(1,nfr,ns)));
     S = [];
     for j = sidx
-        upd(j); S = [S; reshape(grab_frame(fig), [], 3)]; %#ok<AGROW>
+        upd(j); S = [S; reshape(gif_grab_frame(fig), [], 3)]; %#ok<AGROW>
     end
-    [map, lut] = make_palette(S);
+    [map, lut] = gif_palette(S);
 end
 tprint = tic;
 for j = 1:nfr
     upd(j);
     if dogif
-        A = grab_frame(fig);
+        A = gif_grab_frame(fig);
         key = bitshift(uint32(A(:,:,1)),-3)*1024 + bitshift(uint32(A(:,:,2)),-3)*32 + bitshift(uint32(A(:,:,3)),-3);
         frames{j} = reshape(lut(double(key)+1), size(A,1), size(A,2));
     elseif o.show
@@ -150,7 +151,7 @@ for j = 1:nfr
 end
 if ~isempty(o.still)
     [~,js] = min(mid(1:max(2,ceil(nfr/5))));  % nfr >= 2
-    upd(js);  imwrite(grab_frame(fig), o.still);
+    upd(js);  imwrite(gif_grab_frame(fig), o.still);
 end
 if o.show, drawnow; else, close(fig); end
 
@@ -158,25 +159,7 @@ out = struct('gif','','nframes',nfr,'t',tf,'exaggeration',ex,'speed',speed,'fps'
 if dogif
     [h,w] = size(frames{1});
     d = dirname(o.gif); if ~isempty(d) && ~exist(d,'dir'), mkdir(d); end
-    if exist(o.gif,'file'), delete(o.gif); end
-    delay = round(100/o.fps)/100;                      % GIF delays are in 1/100 s
-    % one imwrite per frame in 'append' mode (Octave's 4-D multi-frame imwrite repeats the first frame - checked
-    % with Octave 10.3 - while append works in Octave and MATLAB)
-    uselzw = true;
-    for j = 1:nfr
-        if j == 1, args = {'LoopCount', Inf}; else, args = {'WriteMode','append'}; end
-        args = [{'DelayTime', delay} args];
-        % Octave (GraphicsMagick) writes GIFs UNCOMPRESSED unless asked: 'Compression','lzw' cuts the size ~10x;
-        % MATLAB has no 'Compression' option for GIF (it always uses LZW)
-        if uselzw
-            try
-                imwrite(frames{j}, map, o.gif, 'gif', args{:}, 'Compression', 'lzw');
-            catch
-                uselzw = false;
-            end
-        end
-        if ~uselzw, imwrite(frames{j}, map, o.gif, 'gif', args{:}); end
-    end
+    gif_write(o.gif, frames, map, o.fps);              % looping GIF (see gif_write.m)
     out.gif = o.gif;  out.frame_size = [w h];
     if o.verbose
         fi = dir(o.gif);
@@ -194,52 +177,6 @@ set(ht,'string',sprintf('t = %.4f s   (slow motion x%.3g, deflection x%g)', tf(j
 if ~isempty(him), set(him,'cdata',sf(EP(:,j))); end
 if ~isempty(hm), set(hm,'xdata',tf(j),'ydata',mid(j)); end
 drawnow;
-end
-
-function A = grab_frame(fig)
-% screen capture of the figure as uint8 RGB: getframe, else print to a temporary PNG
-try
-    F = getframe(fig); A = F.cdata;
-    if isempty(A) || ndims(A) ~= 3, error('empty'); end
-catch
-    fn = [tempname() '.png'];
-    print(fig, fn, '-dpng', '-r72');
-    A = imread(fn); delete(fn);
-end
-A = uint8(A(:,:,1:3));
-end
-
-function [map, lut] = make_palette(S)
-% common 256-colour palette for all frames: jet(112) (strain colours) + 32 greys + the most frequent colours of
-% the sample frames; lut maps every 5-bit-per-channel RGB key (r*1024+g*32+b) to the nearest palette index
-S = double(S);
-fixed = [round(255*jet(112)); round(repmat(linspace(0,255,32).',1,3))];
-key = floor(S(:,1)/8)*1024 + floor(S(:,2)/8)*32 + floor(S(:,3)/8);
-cnt = accumarray(key+1, 1, [32768 1]);
-[~,ord] = sort(cnt,'descend');
-ord = ord(cnt(ord) > 0);
-cols = zeros(0,3);
-for q = 1:numel(ord)
-    k = ord(q)-1;  c = [floor(k/1024), mod(floor(k/32),32), mod(k,32)]*8 + 4;
-    if min(sum((fixed - c).^2,2)) > 3*8^2 && (isempty(cols) || min(sum((cols - c).^2,2)) > 3*8^2)
-        cols(end+1,:) = c; %#ok<AGROW>
-    end
-    if size(fixed,1)+size(cols,1) >= 256, break, end
-end
-pal = [fixed; cols];
-map = pal/255;
-[kb,kg,kr] = ndgrid(0:31,0:31,0:31);                   % kb varies fastest
-all5 = [kr(:) kg(:) kb(:)]*8 + 4;                       % row index = kr*1024+kg*32+kb+1
-lut = zeros(32768,1,'uint8');
-for a = 1:4096:32768
-    b = min(a+4095,32768);
-    D = zeros(b-a+1, size(pal,1));
-    for c3 = 1:3
-        D = D + (all5(a:b,c3) - pal(:,c3).').^2;
-    end
-    [~,im] = min(D,[],2);
-    lut(a:b) = uint8(im-1);
-end
 end
 
 function d = dirname(f)

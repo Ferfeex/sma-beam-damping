@@ -24,7 +24,7 @@ Folder names are the original ones, so you can map them to `docs/CODE_MAP_origin
 
 The original Drive folder held 114 `.m` files of which only 94 were distinct (20 byte-identical
 copies: e.g. `smooth2a.m` x7, `Loss/*/fun_ode_1D.m` x5, `meshare.m` x4 ...). The copies were dropped,
-one copy of each was kept (in `src/`, `third_party/` or here). `CLEANUP_REPORT.md` lists the mapping.
+one copy of each was kept (in `src/`, `third_party/` or here). `CHANGES.md` lists the mapping.
 
 Note: some archived scripts (`meshare.m`, `track.m` ...) call `smooth2a`, a third-party function that is no longer in
 the repository (replaced in the main code by `src/smooth_mean2d.m`); they were not runnable anyway.

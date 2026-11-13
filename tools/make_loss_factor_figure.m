@@ -1,6 +1,6 @@
 % MAKE_LOSS_FACTOR_FIGURE  docs/loss_factor_fit.png: loss factor eta versus reversal strain,
 % computed by brinson/Tension_compression_parametric.m (dots), its 4th-degree polynomial fit
-% (regenerated p) and the author's original data/p.mat that the simulations use by default.
+% (regenerated p) and the original data/p.mat that the simulations use by default.
 root = fileparts(fileparts(mfilename('fullpath')));
 set(0,'defaultfigurevisible','off');
 setenv('SMA_ROOT',root);        % the script below does 'clear all'

@@ -6,6 +6,7 @@ function status = myfun_SE(T,X,flag,prm)
 % 42 positional arguments are now fields of prm (unpacked with their ORIGINAL names).
 global KFF CFF tt yy xisp xisp0 indp_old indm_old sigma_old s p1 m1
 global epsyylon xysp LF sigma0 epsilon0
+global snap_n snap_ns snap_gi snap_grid snap_T snap_P snap_M snap_Tm
 persistent last_print
 Ea = prm.Ea; Emp = prm.Emp; ssp = prm.ssp; sfp = prm.sfp; eps_Lp = prm.eps_Lp; b = prm.b;
 Extr = prm.Extr; Extr_tr = prm.Extr_tr; csi = prm.csi; y = prm.y; B = prm.B; N = prm.N;
@@ -136,6 +137,11 @@ if nargin < 3 || isempty(flag)
         epsyylon = epsilon;
         xysp = xisp;
         s = sigma_i;
+    end
+    if snap_gi <= snap_n && T >= snap_grid(snap_gi)      % optional snapshot of the martensite fractions (cfg.post.n_snapshots)
+        snap_ns = snap_ns + 1;
+        snap_T(snap_ns) = T;  snap_P(:,snap_ns) = xisp;
+        while snap_gi <= snap_n && snap_grid(snap_gi) <= T, snap_gi = snap_gi + 1; end
     end
     sigma_old = sigma_i;
     if prm.verbose

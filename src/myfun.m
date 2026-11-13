@@ -9,11 +9,12 @@ function status = myfun(T,X,flag,prm)
 %      the loss factor LF from the polynomial p and rebuilds the damping matrix CFF
 %      (C = (eta/omega) K), then returns status=1 so that the solver restarts.
 %
-% Refactor note (2026): the original had 36 positional arguments; they are now
+% Refactor note: the original had 36 positional arguments; they are now
 % fields of the struct prm and unpacked below with their ORIGINAL names.
 % The numerical core (everything between the markers) is unchanged.
 global KFF CFF tt yy xisp xism xiT xisp0 xism0 xiT0 indp_old indm_old sigma_old s p1 m1
 global epsyylon xysp xysm xyT LF FF FFF
+global snap_n snap_ns snap_gi snap_grid snap_T snap_P snap_M snap_Tm
 persistent last_print     % progress printing (not part of the physics)
 Ea = prm.Ea; Emp = prm.Emp; Emm = prm.Emm; EmT = prm.EmT;
 ssp = prm.ssp; sfp = prm.sfp; ssm = prm.ssm; sfm = prm.sfm;
@@ -97,7 +98,7 @@ if nargin < 3 || isempty(flag)
     % NOTE (see KNOWN_ISSUES.md #1): the 2020 original had
     %     while ~isempty(indp) && ~isempty(indm)
     % i.e. Newton ran only while BOTH a tension and a compression zone were active and stopped as soon
-    % as one of the two sets had converged. Corrected (2026, approved by the author) to ||: iterate while
+    % as one of the two sets had converged. Corrected to ||: iterate while
     % ANY point still has to converge. The cap prm.newton_maxit protects against a non-converging point.
     while (~isempty(indp) || ~isempty(indm)) && i < prm.newton_maxit
         % MARTENSITIC FRACTIONS
@@ -173,6 +174,12 @@ if nargin < 3 || isempty(flag)
         xysm = xism;
         xyT = xiT;
         s = sigma_i;
+    end
+    if snap_gi <= snap_n && T >= snap_grid(snap_gi)      % optional snapshot of the martensite fractions (cfg.post.n_snapshots)
+        snap_ns = snap_ns + 1;
+        snap_T(snap_ns) = T;  snap_P(:,snap_ns) = xisp;
+        snap_M(:,snap_ns) = xism;  snap_Tm(:,snap_ns) = xiT;
+        while snap_gi <= snap_n && snap_grid(snap_gi) <= T, snap_gi = snap_gi + 1; end
     end
     sigma_old = sigma_i;
     if prm.verbose

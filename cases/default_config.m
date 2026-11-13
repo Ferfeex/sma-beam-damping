@@ -69,6 +69,7 @@ cfg.numerics.verbose      = false;  % true = original per-step printout
 cfg.post.shift_to_first_max = true; % time axis starts at the first mid-span maximum (as in the original)
 cfg.post.keep_fields        = false; % keep the strain / martensite fields of the LAST step (used by plot_fields)
 cfg.post.keep_field_history = false; % with keep_fields: keep them for EVERY step (large and slow, O(n^2))
+cfg.post.n_snapshots       = 0;     % >0: record the martensite fractions at ~this many evenly spaced times (res.snapshots; run_case sets 100 for the xt / fields-animation options)
 
 % ---- performance switches (see PERF_NOTES.md). 1 = fast path, 0 = original code path (identical physics) ----
 cfg.perf.vec      = 1;   % vectorised element integration/assembly (replaces the trapz loops) and strain B*Extr

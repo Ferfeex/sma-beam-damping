@@ -8,7 +8,9 @@ function varargout = sma_gui(action, varargin)
 % In the window: choose the case (description and runtime estimate are shown), optionally edit the
 % loss-factor polynomial p of THIS run (the file data/p.mat is never changed), tick "Compare with
 % linear beam", optionally type a final time Tf, choose whether the figures are shown and/or saved
-% (results/*.png), and press Run. Built only from classic uicontrols, so it works in GNU Octave (Qt
+% (results/*.png), whether the plots go into ONE window with tabs (default) or separate windows, which
+% animations to make (beam, SMA vs linear beam, martensite fractions; "Save GIF" writes the GIF files
+% in results/), and press Run. Built only from classic uicontrols, so it works in GNU Octave (Qt
 % toolkit, e.g. the Octave GUI on Windows) and in MATLAB.
 %
 % Returns the figure handle (window mode). The other actions ('run', 'select', ...) are the window's
@@ -78,25 +80,32 @@ mk('text',[0.02 0.895 0.45 0.035],'1. Case','fontweight','bold','horizontalalign
 H.list = uicontrol(fig,'style','listbox','units','normalized','position',[0.02 0.64 0.45 0.255], ...
     'string',{C.label},'value',1,'min',1,'max',1,'backgroundcolor',[1 1 1], ...
     'callback',@(h,e) sma_gui('select',fig));
-H.desc = uicontrol(fig,'style','text','units','normalized','position',[0.02 0.43 0.45 0.20], ...
+H.desc = uicontrol(fig,'style','text','units','normalized','position',[0.02 0.485 0.45 0.15], ...
     'string','','backgroundcolor',[0.97 0.97 0.92],'horizontalalignment','left');
-H.est  = uicontrol(fig,'style','text','units','normalized','position',[0.02 0.34 0.45 0.075], ...
+H.est  = uicontrol(fig,'style','text','units','normalized','position',[0.02 0.405 0.45 0.07], ...
     'string','','backgroundcolor',bg,'horizontalalignment','left','fontweight','bold');
-mk('text',[0.02 0.285 0.45 0.035],'2. Options','fontweight','bold','horizontalalignment','left');
-mk('text',[0.02 0.245 0.20 0.04],'Final time Tf [s]:','horizontalalignment','left');
-H.tf = uicontrol(fig,'style','edit','units','normalized','position',[0.22 0.25 0.10 0.045], ...
+mk('text',[0.02 0.365 0.45 0.035],'2. Options','fontweight','bold','horizontalalignment','left');
+mk('text',[0.02 0.325 0.20 0.04],'Final time Tf [s]:','horizontalalignment','left');
+H.tf = uicontrol(fig,'style','edit','units','normalized','position',[0.22 0.33 0.10 0.045], ...
     'string','','backgroundcolor',[1 1 1],'callback',@(h,e) sma_gui('tfedit',fig));
-H.tfhint = mk('text',[0.33 0.245 0.14 0.04],'(blank = default)','horizontalalignment','left');
-H.cmp = mk('checkbox',[0.02 0.205 0.45 0.04],'Compare with linear beam (overlay)','value',0, ...
+H.tfhint = mk('text',[0.33 0.325 0.14 0.04],'(blank = default)','horizontalalignment','left');
+H.cmp = mk('checkbox',[0.02 0.285 0.45 0.04],'Compare with linear beam (overlay)','value',0, ...
     'horizontalalignment','left');
-H.fld = mk('checkbox',[0.02 0.165 0.45 0.04],'Plot fields (strain / martensite)','value',0, ...
+H.fld = mk('checkbox',[0.02 0.248 0.45 0.04],'Plot fields (strain / martensite, incl. martensite vs time)','value',0, ...
     'horizontalalignment','left');
-H.anim = mk('checkbox',[0.02 0.125 0.22 0.04],'Animate beam','value',0, ...
+mk('text',[0.02 0.208 0.10 0.04],'Animate:','horizontalalignment','left');
+H.anim = mk('checkbox',[0.11 0.212 0.12 0.04],'beam','value',0, ...
     'horizontalalignment','left');
-H.gif = mk('checkbox',[0.25 0.125 0.22 0.04],'Save GIF','value',0, ...
+H.canim = mk('checkbox',[0.22 0.212 0.14 0.04],'SMA vs linear','value',0, ...
     'horizontalalignment','left');
-mk('text',[0.02 0.075 0.14 0.04],'Figures:','horizontalalignment','left');
-H.figs = uicontrol(fig,'style','popupmenu','units','normalized','position',[0.14 0.08 0.33 0.045], ...
+H.fanim = mk('checkbox',[0.36 0.212 0.12 0.04],'martensite','value',0, ...
+    'horizontalalignment','left');
+H.gif = mk('checkbox',[0.02 0.172 0.22 0.04],'Save GIF','value',0, ...
+    'horizontalalignment','left');
+H.dash = mk('checkbox',[0.25 0.172 0.22 0.04],'One window (tabs)','value',1, ...
+    'horizontalalignment','left');
+mk('text',[0.02 0.12 0.14 0.04],'Figures:','horizontalalignment','left');
+H.figs = uicontrol(fig,'style','popupmenu','units','normalized','position',[0.14 0.125 0.33 0.045], ...
     'string',{'Show windows and save PNG','Show windows only','Save PNG only (no windows)','No figures'}, ...
     'value',1,'backgroundcolor',[1 1 1]);
 
@@ -137,6 +146,7 @@ lin = strcmp(C.model,'linear');
 set(H.cmp,'value',0,'enable',onoff(~lin));
 set(H.fld,'value',0,'enable',onoff(strcmp(C.model,'two_phase')));
 set(H.anim,'value',0); set(H.gif,'value',0);
+set(H.canim,'value',0,'enable',onoff(~lin)); set(H.fanim,'value',0,'enable',onoff(~lin));
 if lin
     S.pdef = []; S.pstr = repmat({''},1,S.nP);
     for i = 1:S.nP, set(H.pe(i),'string','','enable','off'); end
@@ -291,7 +301,12 @@ args = {'compare_hle', logical(get(H.cmp,'value')) && strcmp(get(H.cmp,'enable')
         'plot_fields', logical(get(H.fld,'value')) && strcmp(get(H.fld,'enable'),'on'), ...
         'figures', S.figmodes{get(H.figs,'value')}};
 anim = logical(get(H.anim,'value'));  sgif = logical(get(H.gif,'value'));
-if anim && sgif, args = [args {'animate','both'}]; elseif sgif, args = [args {'animate','gif'}]; elseif anim, args = [args {'animate',true}]; end
+canim = logical(get(H.canim,'value')) && strcmp(get(H.canim,'enable'),'on');
+fanim = logical(get(H.fanim,'value')) && strcmp(get(H.fanim,'enable'),'on');
+if anim && sgif, args = [args {'animate','both'}]; elseif sgif && ~canim && ~fanim, args = [args {'animate','gif'}]; elseif anim, args = [args {'animate',true}]; end
+if canim, args = [args {'animate_compare', ternary(sgif,'both',true)}]; end      % 'Save GIF' = window AND GIF
+if fanim, args = [args {'animate_fields', ternary(sgif,'both',true)}]; end
+args = [args {'dashboard', logical(get(H.dash,'value'))}];
 if ~isempty(Tf), args = [args {'Tf',Tf}]; end
 if pmod, args = [args {'p',p}]; end
 % ---- run ----------------------------------------------------------------------------------------

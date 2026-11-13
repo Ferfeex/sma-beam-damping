@@ -23,10 +23,20 @@ function res = run_case(c, varargin)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
 %     'verbose'     true = original per-step printout
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
-%                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png)
+%                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png), and the martensite
+%                   fractions versus time and position along the beam (src/martensite_xt.m, <case>_martensite_xt.png)
+%     'dashboard'   true (default) | false: with 'figures' = 'show' / 'both' put the result plots in ONE window with tab
+%                   buttons (src/dashboard.m: deflection, SMA vs linear, strain, martensite) instead of separate
+%                   windows; false = the old separate windows. The PNG files are the same either way.
 %     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
 %                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
 %                   Slow motion, 25 fps, deflection exaggerated; works for every case.
+%     'animate_compare' false (default) | true | 'gif' | 'both': the same for the SMA beam TOGETHER WITH the linear
+%                   reference beam (src/animate_compare.m): beams overlaid + both mid-span histories with moving
+%                   markers; GIF = <outdir>/<case>_animation_compare.gif. Runs the linear reference if needed.
+%     'animate_fields' false (default) | true | 'gif' | 'both': animation of the martensite fractions xi_s+, xi_s-, xi_T over
+%                   length x thickness while the beam rings down (src/animate_fields.m, ~100 snapshots recorded during
+%                   the solve); GIF = <outdir>/<case>_fields_animation.gif. 'fields_opts': extra options (cell).
 %     'animate_opts' cell of extra name/value options for animate_beam, e.g. {'speed',0.05,'strain',false}
 %
 %   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
@@ -38,7 +48,7 @@ if nargin == 0
     return
 end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}});
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'fields_opts',{{}},'dashboard',true);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -57,6 +67,10 @@ end
 if ~isempty(opt.Tf),        cfg.time.Tf = opt.Tf; end
 if ~isempty(opt.verbose),   cfg.numerics.verbose = opt.verbose; end
 if opt.plot_fields,         cfg.post.keep_fields = true; end
+want_fields_anim = ~isequal(opt.animate_fields,false) && ~isempty(opt.animate_fields);
+if (opt.plot_fields || want_fields_anim) && ~strcmp(cfg.model,'linear') && ~(isfield(cfg.post,'n_snapshots') && cfg.post.n_snapshots > 0)
+    cfg.post.n_snapshots = 100;                    % martensite fractions at ~100 times (src/sma_beam_solve.m): xt map, fields animation
+end
 
 if ~strcmp(cfg.model,'linear')
     pf = cfg.p_file;
@@ -90,17 +104,22 @@ fprintf('mid-span peaks [mm] (t[s] : height): ');
 fprintf('%.3f:%.2f  ', res.peaks(1:min(8,end),:)');
 fprintf('\n');
 
-ref = [];
-if opt.compare_hle
+ref = [];  refc = [];
+if opt.compare_hle || ~isequal(opt.animate_compare,false)    % the comparison animation needs the linear reference too
     cr = case_hle_linear(); cr.time.Tf = cfg.time.Tf;
-    ref = linear_beam_solve(cr);
-    res.reference = ref;
+    refc = linear_beam_solve(cr);  refc.cfg = cr;
+    res.reference = refc;
+    if opt.compare_hle, ref = refc; end                       % ref = what the figures overlay
 end
 
 show = any(strcmp(opt.figures,{'show','both'}));
 dosave = any(strcmp(opt.figures,{'save','both'}));
-if ~strcmp(opt.figures,'none')
-    if show, f = figure; else, f = figure('visible','off'); end
+% ONE tabbed window (src/dashboard.m) instead of separate figure windows when figures are shown; the PNG files are
+% written from hidden figures exactly as before. Falls back to separate windows if the toolkit has no uipanel.
+use_dash = show && opt.dashboard && dashboard_supported();
+vis_sep  = show && ~use_dash;                       % separate visible windows
+if ~strcmp(opt.figures,'none') && (dosave || vis_sep)
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     plot(res.TT, res.midspan, 'LineWidth', 1.5); hold on   % deflection at x = L/2
     if ~isempty(ref), plot(ref.TT, ref.midspan, 'LineWidth', 1.5); end
     grid on; xlabel('Time t [s]'); ylabel('Displacement \delta [mm]');
@@ -112,47 +131,85 @@ if ~strcmp(opt.figures,'none')
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         fn = fullfile(opt.outdir, [cfg.name tag '_midspan.png']);
         print(f,'-dpng','-r110',fn);
-        if ~show, close(f); end
         fprintf('figure: %s\n', fn);
     end
-    if show, drawnow; end
+    if vis_sep, drawnow; else, close(f); end
 end
-if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none')
+if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none') && (dosave || vis_sep)
     ff = res.fields;
     if ~exist(opt.outdir,'dir') && dosave, mkdir(opt.outdir); end
     % 1) martensite fractions over the beam at the last time step (thesis 'Simulazione_lunga')
-    if show, f = figure; else, f = figure('visible','off'); end
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L,f);
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_fields.png']);
         print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if ~show, close(f); else, drawnow; end
+    if ~vis_sep, close(f); else, drawnow; end
     % 2) thesis-style deformed beam + strain map at the last time step
-    if show, f = figure; else, f = figure('visible','off'); end
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     strain_figure(ff.epsyylon,res.XX,cfg.geom.N,cfg.geom.L,cfg.geom.thick,res.TT(end),f);
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_strain.png']);
         print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if ~show, close(f); else, drawnow; end
+    if ~vis_sep, close(f); else, drawnow; end
 end
-if ~isequal(opt.animate,false) && ~isempty(opt.animate)
-    am = opt.animate;  if islogical(am) || isnumeric(am), am = ternary_(logical(am),'play','none'); end
-    if ~any(strcmp(am,{'play','gif','both','none'})) && ~strcmp(am,'true')
-        error('run_case: option ''animate'' must be false, true, ''gif'' or ''both''');
+if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none') && (dosave || vis_sep)
+    % 3) martensite fractions versus time and position along the beam (thickness-averaged colour maps)
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
+    set(f,'units','pixels','position',[100 80 700 760],'color','w','paperpositionmode','auto');
+    martensite_xt(res, cfg, f);
+    if dosave
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        fn = fullfile(opt.outdir, [cfg.name tag '_martensite_xt.png']);
+        print(f,'-dpng','-r110',fn);
+        fprintf('figure: %s\n', fn);
     end
-    if strcmp(am,'true'), am = 'play'; end
-    if ~strcmp(am,'none')
-        ao = {'show', any(strcmp(am,{'play','both'}))};
-        if any(strcmp(am,{'gif','both'}))
+    if ~vis_sep, close(f); else, drawnow; end
+end
+if use_dash
+    try
+        res.dashboard = dashboard(res, cfg, ref, 'title', [cfg.name tag]);
+        drawnow;
+    catch err
+        warning('run_case: the dashboard window could not be created (%s); use ''dashboard'',false for separate windows', err.message);
+    end
+end
+[am,doshow,dogif] = anim_mode_(opt.animate,'animate');
+if ~strcmp(am,'none')
+    ao = {'show', doshow};
+    if dogif
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
+    end
+    res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
+    fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+end
+[am,doshow,dogif] = anim_mode_(opt.animate_compare,'animate_compare');
+if ~strcmp(am,'none')
+    ao = {'show', doshow};
+    if dogif
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation_compare.gif'])}];
+    end
+    res.animation_compare = animate_compare(res, refc, cfg, refc.cfg, ao{:}, opt.animate_opts{:});
+    fprintf('comparison animation done in %.1f s (%d frames)\n', res.animation_compare.runtime_s, res.animation_compare.nframes);
+end
+[am,doshow,dogif] = anim_mode_(opt.animate_fields,'animate_fields');
+if ~strcmp(am,'none')
+    if ~isfield(res,'snapshots')
+        fprintf('animate_fields: no martensite fractions in this model (linear beam) - skipped\n');
+    else
+        ao = {'show', doshow};
+        if dogif
             if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-            ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
+            ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_fields_animation.gif'])}];
         end
-        res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
-        fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+        res.animation_fields = animate_fields(res, cfg, ao{:}, opt.fields_opts{:});
+        fprintf('fields animation done in %.1f s (%d frames)\n', res.animation_fields.runtime_s, res.animation_fields.nframes);
     end
 end
 if opt.save_mat
@@ -162,8 +219,15 @@ if opt.save_mat
 end
 end
 
-function v = ternary_(c,a,b)
-if c, v = a; else, v = b; end
+function [mode,doshow,dogif] = anim_mode_(v,name)
+% value of an 'animate*' option -> 'none' | 'play' | 'gif' | 'both'
+if isempty(v) || isequal(v,false) || isequal(v,0), mode = 'none';
+elseif islogical(v) || isnumeric(v), mode = 'play';
+elseif strcmp(v,'true'), mode = 'play';
+elseif any(strcmp(v,{'play','gif','both','none'})), mode = v;
+else, error('run_case: option ''%s'' must be false, true, ''gif'' or ''both''', name);
+end
+doshow = any(strcmp(mode,{'play','both'}));  dogif = any(strcmp(mode,{'gif','both'}));
 end
 
 function v = getfield_or(s,f,d)

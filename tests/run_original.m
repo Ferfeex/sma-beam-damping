@@ -16,9 +16,9 @@ fid = fopen(fullfile(tmp,'FEM1D.m'),'w'); fwrite(fid,txt); fclose(fid);
 for k = 1:size(support,1)
     copyfile(fullfile(root,support{k,1}), fullfile(tmp,support{k,2}));
     if strcmp(support{k,2},'myfun.m')
-        % The ONLY intended difference between the 2020 original and the cleaned code: the Newton loop
-        % condition && -> || (KNOWN_ISSUES.md #1, approved by the author). Patch the copy of the original
-        % so that the comparison isolates the cleanup (everything else must be bit-identical).
+        % The ONLY intended difference between the 2020 original and this code: the Newton loop
+        % condition && -> || (KNOWN_ISSUES.md #1). Patch the copy of the original
+        % so that the comparison isolates the refactoring (everything else must be bit-identical).
         f = fullfile(tmp,'myfun.m'); t = fileread(f);
         t2 = strrep(t,'while ~isempty(indp) && ~isempty(indm)','while ~isempty(indp) || ~isempty(indm)');
         if strcmp(t,t2), error('run_original: Newton loop line not found in %s', support{k,1}); end
