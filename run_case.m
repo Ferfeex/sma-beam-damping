@@ -21,7 +21,7 @@ function res = run_case(c, varargin)
 %                   data/p.mat (or p_SE.mat); data files are never modified
 %     'outdir'      folder for figures/results (default <repo>/results, git-ignored)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
-%     'verbose'     true = original per-step printout
+%     'verbose'     true = print every step
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
 %                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png), and the martensite
 %                   fractions versus time and position along the beam (src/martensite_xt.m, <case>_martensite_xt.png)
@@ -47,8 +47,7 @@ function res = run_case(c, varargin)
 %                   runs inside run_case, as its last step, after all files are written). false = open the window with
 %                   the animations paused and return at once; Play in the window starts the loop.
 %
-%   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
-%   (old value: node 9, x = res.x_midspan_node), runtime_s, cfg, peaks (time, height of midspan).
+%   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), runtime_s, cfg, peaks (time, height of midspan).
 setup_paths();
 if nargin == 0
     fig = sma_gui();                      % interactive start window (or text menu without display)
@@ -242,8 +241,8 @@ if ~strcmp(am_f,'none')
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-    TT = res.TT; XX = res.XX; midspan = res.midspan; midspan_node = res.midspan_node; x_midspan_node = res.x_midspan_node; peaks = res.peaks; %#ok<NASGU>
-    save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','midspan_node','x_midspan_node','peaks','cfg');
+    TT = res.TT; XX = res.XX; midspan = res.midspan; peaks = res.peaks; %#ok<NASGU>
+    save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','peaks','cfg');
 end
 % on-screen animations: loop until the window is closed or Stop is pressed (everything is saved at this point)
 if dash_anim && isfield(res,'dashboard') && ishandle(res.dashboard) && opt.anim_block

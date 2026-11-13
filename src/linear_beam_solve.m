@@ -2,14 +2,12 @@ function res = linear_beam_solve(cfg)
 % LINEAR_BEAM_SOLVE  linear (non-SMA) Euler-Bernoulli beam with Rayleigh damping.
 %   This is the reference the SMA results are compared against ("HLE" = high-loss-elastic
 %   linear material of same stiffness), and the linear transient cases (thesis 3.2/3.3.2).
-%   Formerly: root FEM1D.m and Transient_linear/FEM1D.m (+ funforce.m).
 %
 %   cfg.mat.E, cfg.mat.rho, cfg.geom.*, cfg.damping.zeta (Rayleigh ratio on modes 1 and 2),
 %   cfg.init (mode1_velocity | zero), cfg.load (none | pulse | ramp), cfg.time.Tf.
 %
-%   NOTE on the force: the stored original of Transient_linear/fun_ode_1D.m had no force term
-%   (4 arguments, FEM1D.m called it with 6), so the form  M a = -K u - C v + F  with
-%   F = FFF (ramped by funforce) is INFERRED, not recovered from the original.
+%   The load enters as the force term of  M a = -K u - C v + F  with F = FFF (ramped by the local
+%   function funforce). Its history is reconstructed from the thesis figures (ramp / rectangular pulse).
 global FF FFF
 N = cfg.geom.N;
 bm = build_beam(cfg, cfg.mat.E);
@@ -70,19 +68,16 @@ while T(end)<Tf-0.0001
     T0 = TT(end);
     X0 = X(end,:)';
 end
-% res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite, see midspan_deflection.m); the old node value
-% (node 9 of 16, x = 533 mm) is kept as res.midspan_node
-[midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
-col = mi.col;
+% res.midspan = deflection at exactly x = L/2 (cubic Hermite, see midspan_deflection.m)
+midspan = midspan_deflection(XX, N, cfg.geom.L);
 if cfg.post.shift_to_first_max
     indice = find(midspan == max(midspan));
     indice = indice(1);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
-    midspan = midspan(indice:end);  midspan_node = midspan_node(indice:end);
+    midspan = midspan(indice:end);
 end
-res.TT = TT; res.XX = XX; res.col = col; res.midspan = midspan; res.x_midspan = cfg.geom.L/2;
-res.midspan_node = midspan_node; res.x_midspan_node = mi.x_node;
+res.TT = TT; res.XX = XX; res.midspan = midspan; res.x_midspan = cfg.geom.L/2;
 res.runtime_s = toc(tic_start); res.alpha = alpha; res.beta = beta;
 end
 
@@ -94,7 +89,7 @@ xdot = [M\(-C*X(1:2*N-2) - K*X(2*N-1:end) + FFF)
 end
 
 function status = funforce(T,~,flag,ld)
-% Load history (formerly funforce.m): ramp from 0 to FF in t_rise, hold until t_end, then 0.
+% Load history: ramp from 0 to FF in t_rise, hold until t_end, then 0.
 %   incremental pulse : t_rise = 0.033, t_end = 0.033  (load.type = 'ramp')
 %   rectangular pulse : t_rise = 1e-4,  t_end = 0.022  (load.type = 'pulse')
 % The solver is restarted (status=1) just after each change of slope.
