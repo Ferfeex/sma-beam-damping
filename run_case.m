@@ -27,7 +27,7 @@ function res = run_case(c, varargin)
 %                   fractions versus time and position along the beam (src/martensite_xt.m, <case>_martensite_xt.png)
 %     'dashboard'   true (default) | false: with 'figures' = 'show' / 'both' put the result plots in ONE window with tab
 %                   buttons (src/dashboard.m: deflection, SMA vs linear, strain, martensite) instead of separate
-%                   windows; false = the old separate windows. The PNG files are the same either way.
+%                   windows; false = separate windows. The PNG files are the same either way.
 %     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
 %                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
 %                   Slow motion, 25 fps, deflection exaggerated; works for every case.

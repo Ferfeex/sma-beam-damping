@@ -60,7 +60,7 @@ eps = [eps ; eps2];
 % Energy
 Et2 = trapz(eps2,sigma2);
 % Transformation direct
-sigma3 = linspace(sigma(end), CMp * (T0 - Ms) + sfp - 10*k, 1000)';%%%%%%%%%%
+sigma3 = linspace(sigma(end), CMp * (T0 - Ms) + sfp - 10*k, 1000)';
 Y = cos(pi * (sigma3-ssp-CMp*(T0-Ms))/(sfp-ssp));
 xisp3 = (1-Y)/2+xisp0*(1+Y)/2;
 E3 = Ea + xisp3*(Emp-Ea);
@@ -130,7 +130,7 @@ eps = [eps ; eps2];
 % Energy
 Ec2 = trapz(eps2,sigma2);
 % Transformation direct
-sigma3 = linspace(sigma(end), CMm * (T0 - Ms) + sfm + 10*k, 1000)';%%%%%%%%%%
+sigma3 = linspace(sigma(end), CMm * (T0 - Ms) + sfm + 10*k, 1000)';
 Y = cos(pi * (sigma3-ssm-CMm*(T0-Ms))/(sfm-ssm));
 xism3 = (1-Y)/2+xism0*(1+Y)/2;
 E3 = Ea + xism3*(Emm-Ea);
