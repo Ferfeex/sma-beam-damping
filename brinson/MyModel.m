@@ -129,8 +129,8 @@ csi_T6 = csi_T4(end) * (1 - csi_S_p6) / (1 - csi_S_p4(end));
 csi_S_n6 = csi_S_n4(end) * (1 - csi_S_p6) / (1 - csi_S_p4(end));
 E6 = E_a + csi_S_p6 * (E_m_p - E_a) + csi_S_n6 * (E_m_n - E_a) + csi_T6 * (E_m_T - E_a);
 eps6 = sigma6 ./ E6 + eps_L_p * csi_S_p6 + eps_L_n * csi_S_n6;
-sigma_plot = [sigma;sigma2;sigma3;sigma4;sigma5;sigma6];%sigma7;sigma8];
-eps_plot = [eps;eps2;eps3;eps4;eps5;eps6];%eps7;eps8];
+sigma_plot = [sigma;sigma2;sigma3;sigma4;sigma5;sigma6];
+eps_plot = [eps;eps2;eps3;eps4;eps5;eps6];
 
 %%
 figure

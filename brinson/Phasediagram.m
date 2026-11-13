@@ -59,14 +59,6 @@ sigma5 = linspace(sigma4(end), 0, 1000)';
 eps5 = sigma5 / E_a;
 csi5 = zeros(1000,1);
 
-% sigma = [sigma; sigma2; sigma3; sigma4; sigma5];
-% eps = [eps; eps2; eps3; eps4; eps5];
-% figure
-% plot(eps, sigma)
-% grid on
-
-%sigma
-
 sigma6 = linspace(sigma(end), 190.5, 1000)';
 csi6 = 1/2 * cos(pi / (sigma_s_cr - sigma_f_cr) * (sigma6 - sigma_f_cr - C_M * (T - Ms))) + 1/2;
 E6 = E_a + csi6 * (E_m - E_a);
@@ -81,16 +73,7 @@ csi8 = csi7(end)/2 * (cos(a_A * (T - As - sigma8 / C_A)) + 1);
 E8 = E_a + csi8 * (E_m - E_a);
 eps8 = eps_L * csi8 + sigma8 ./E8;
 
-% 110 > C_M(T - Ms) + sigma_s_cr quindi siamo già all'interno dell'area di
-% transizione [M]
-
-% Però non funziona, quindi proviamo ad alzare sigma_s_M proporzionalmente a
-% quanto abbiamo abbassato punto di partenza loop interno (190.5 MPa)
-% Nuovo sigma_s_M = 136.6417 
-
-% sigma9 = linspace(sigma8(end), 136.6417, 1000)';
-% eps9 = sigma9 / E8(end) + eps_L * csi8(end);
-% csi9 = ones(1000,1) * csi8(end);
+% At 110 MPa the point is already inside the martensite transformation zone (110 > C_M (T - Ms) + sigma_s_cr).
 
 sigma9 = linspace(sigma8(end), C_M * (T - Ms) + sigma_f_cr, 1000)';
 csi9 = (1 - csi8(end)) / 2 * cos(pi / (sigma_s_cr - sigma_f_cr) * (sigma9 - sigma_f_cr - C_M * (T - Ms))) + (1 + csi8(end)) / 2;
@@ -155,7 +138,6 @@ eps21 = eps_L * csi21 + sigma21 ./ E21;
 
 sigma = [sigma; sigma2; sigma3; sigma4; sigma5; sigma6; sigma7; sigma8; sigma9; sigma10; sigma11; sigma12;sigma13;sigma14;sigma15;sigma16;sigma17;sigma18;sigma19;sigma20;sigma21];
 eps = [eps; eps2; eps3; eps4; eps5; eps6; eps7; eps8; eps9; eps10; eps11; eps12;eps13;eps14;eps15;eps16;eps17;eps18;eps19;eps20;eps21];
-% csi = [csi; csi2; csi3; csi4; csi5; csi6; csi7; csi8; csi9; csi10];
  
 figure
 plot(eps, sigma)

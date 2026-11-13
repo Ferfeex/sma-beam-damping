@@ -66,69 +66,7 @@ xlabel('Strain')
 ylabel('Stress [MPa]')
 title('Stress-strain detwinning')
 
-%% STRESS RECOVERY 4 AND 5
-
-
-% T = linspace(T_0, (E_m * (eps(end) - eps_L * csi_S(end)) + C_A * As - Teta * T_0) / (C_A - Teta) , 1000)';
-% sigma4 = E_m * (eps(end) - eps_L * csi_S(end)) + Teta * (T - T_0);
-% T = [ones(3000,1) * T_0; T];
-% sigma = [sigma ; sigma4];
-% 
-% E = E_m;
-% csi = 1;
-% 
-% 
-% 
-% delta_T = 0.05;
-% 
-% while sigma(end) > C_A * (T(end) - Af) && sigma(end) < 2000
-%     T(end+1,1) = T(end) + delta_T;
-%     s = sigma(end);
-% 
-%     
-%     xi = @(s) 1 / 2 * (cos(a_A * (T(end) - As - s / C_A)) + 1);
-%     d_xi = @(s) a_A / (2 * C_A) * sin(a_A * (T(end) - As - s / C_A));
-%     y = @(s) s - xi(s)^2 * eps_L * (E_a - E_m) - xi(s) * (eps(end) * E_m - E_a * (eps_L + eps(end))) - E_a * eps(end) - Teta * (T(end) - T_0);
-%     dy = @(s) 1 - d_xi(s) * (2 * eps_L * xi(s) * (E_a - E_m) + E_m * eps(end) - E_a * (eps_L + eps(end)));
-%     
-% 
-%     err_norm = 1;
-%     while err_norm >= 1e-6
-%         ss = s - y(s) / dy(s);
-%         err_norm = norm(s - ss) / norm(s);
-%         s = ss;
-%     end
-%     
-% sigma(end+1,1) = s;
-% csi(end+1,1) = xi(sigma(end));
-% end
-% 
-% R1 = C_M * (T - Ms) + sigma_f_cr;
-% R1 = [R1 > sigma_f_cr] .* R1;
-% R2 = C_M * (T - Ms) + sigma_s_cr;
-% R2 = [R2 > sigma_s_cr] .* R2;
-% R3 = C_A * (T - As);
-% R3 = [R3 > 0] .* R3;
-% R4 = C_A * (T - Af);
-% R4 = [R4 > 0] .* R4;
-% TT = -65:0.1:Ms;
-% figure
-% % plot(T,sigma,'k','LineWidth',1.5)
-% % hold on
-% plot(T,R1,'r--', T,R2,'r--', T,R3,'r--', T,R4,'r--', TT, ones(length(TT), 1) * sigma_s_cr, 'r--', TT, ones(length(TT), 1) * sigma_f_cr, 'r--')
-% xlabel('T [°C]')
-% ylabel('Stress [MPa]')
-% title('Thermomechanical loading path into phase diagram')
-% grid on
-% hold off
-% 
-% ii = length(T) - length(csi) + 1;
-% figure
-% plot(T(ii:end,1),csi);
-% title('Martensitic fraction evolution M --> A')
-% xlabel('Temperature [°C]')
-% ylabel('\xi')
-% grid on
+% Stress recovery under constrained heating (steps 4 and 5) is not computed here; see the strain recovery below.
 
 %% STRAIN RECOVERY 
 

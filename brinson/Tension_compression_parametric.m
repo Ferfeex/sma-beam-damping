@@ -4,9 +4,9 @@ close all
 
 % Young's
 E_a = 34.9e3; %[MPa]
-E_m_p = 26e3;%140e3; %[MPa]
-E_m_n = 33e3;%90e3;
-E_m_T = 26e3;%100e3;
+E_m_p = 26e3; %[MPa]
+E_m_n = 33e3;
+E_m_T = 26e3;
 % Other SMA parameters
 Teta = 0.55; %[MPa/°C]
 Mf = -55; %[°C]
@@ -18,9 +18,9 @@ C_A_p = 3; %[MPa/°C]
 C_M_n = 0.2;
 C_A_n = 3;
 sigma_s_cr_p = 0; %[MPa]
-sigma_f_cr_p = 188;%180; %[MPa]
+sigma_f_cr_p = 188; %[MPa]
 sigma_s_cr_n = 0;
-sigma_f_cr_n = -220;%-180;
+sigma_f_cr_n = -220;
 % Maximum transformation strains (thesis Table 3.2)
 eps_L_p = 0.016;
 eps_L_n = -0.0146;
@@ -53,11 +53,6 @@ for kk = eps_upp
     eu = [eu eps_up];
 % Cicli all'interno dello stesso ciclo Tensione-Compressione
     for ii = 1:2
-% Tension, per eventuale prova con ssp > 0 e/o ssm < 0
-%         sigma = linspace(sigma_s_cr_p, sigma_s_cr_p, 1000)';
-%         eps = sigma / E(end) + eps_L_p * csi_S_p(end) + eps_L_n * csi_S_n(end);
-% Dissipated energy tension
-%         E_diss1 = trapz(eps,sigma);
 % Reorientation 1
         sigma2 = linspace(0, sigma_f_cr_p, 1000)';
         Y2 = cos(pi * (sigma2 - sigma_s_cr_p) / (sigma_f_cr_p - sigma_s_cr_p));
@@ -74,18 +69,11 @@ for kk = eps_upp
         E2 = E2(1:length(eps2));
 % Energy
         E_diss2 = trapz(eps2,sigma2);
-%         U_max2 = 1/2 * eps2(end) * sigma2(end);
 % Aggiornamento XI ed E plot
 xisp = [xisp ; csi_S_p2];
 xism = [xism ; csi_S_n2];
 xiT = [xiT ; csi_T2];
 E = [E ; E2];
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%         if sigma2(end) <= 40
-%             sigma_s_cr_n = sigma2(end);
-%         else
-%             sigma_s_cr_n = 40;
-%         end 
 % Compression linear
         sigma3 = linspace(sigma2(end), sigma_s_cr_n, 1000)';
         eps3 = sigma3 / E2(end) + eps_L_p * csi_S_p2(end) + eps_L_n * csi_S_n2(end);
@@ -112,18 +100,11 @@ E = [E ; E(end)*ones(length(sigma3),1)];
         E4 = E4(1:length(eps4));
 % Energy
         E_diss4 = trapz(eps4,sigma4);
-%         U_max4 = 1/2 * eps4(end) .* sigma4(end);
 % Aggiornamento XI plot
 xisp = [xisp ; csi_S_p4];
 xism = [xism ; csi_S_n4];
 xiT = [xiT ; csi_T4];
 E = [E ; E4];
-% Per eventuale prova con sfp variabile con punto di arrivo
-%         if sigma4(end) >= -10
-%             sigma_s_cr_p = sigma4(end);
-%         else
-%             sigma_s_cr_p = -10;
-%         end        
 % Tension linear
         sigma5_lin = linspace(sigma4(end), sigma_s_cr_p, 1000)';
         eps5_lin = sigma5_lin / E4(end) + eps_L_p * csi_S_p4(end) + eps_L_n * csi_S_n4(end);
@@ -134,16 +115,6 @@ xisp = [xisp ; xisp(end)*ones(length(sigma5_lin),1)];
 xism = [xism ; xism(end)*ones(length(sigma5_lin),1)];
 xiT = [xiT ; xiT(end)*ones(length(sigma5_lin),1)];
 E = [E ; E(end)*ones(length(sigma5_lin),1)];
-% Reorientation from ssp < 0 to 0 (particular case)       
-%         sigma5 = linspace(sigma5_lin(end), 0, 1000)';
-%         Y5 = cos(pi * (sigma5 - sigma_s_cr_p) / (sigma_f_cr_p - sigma_s_cr_p));
-%         csi_S_p5 = (1 - Y5) / 2 + csi_S_p4(end) * (1 + Y5) / 2;
-%         csi_T5 = csi_T4(end) * (1 - csi_S_p5) / (1 - csi_S_p4(end));
-%         csi_S_n5 = csi_S_n4(end) * (1 - csi_S_p5) / (1 - csi_S_p4(end));
-%         E5 = E_a + csi_S_p5 * (E_m_p - E_a) + csi_S_n5 * (E_m_n - E_a) + csi_T5 * (E_m_T - E_a);
-%         eps5 = sigma5 ./ E5 + eps_L_p * csi_S_p5 + eps_L_n * csi_S_n5;
-% Energy
-%         E_diss5 = trapz(eps5,sigma5);
 % Putting together the variables for the plot
         sigma_plot = [sigma_plot; sigma2; sigma3; sigma4; sigma5_lin];
         eps_plot = [eps_plot; eps2; eps3; eps4; eps5_lin;];        
@@ -156,7 +127,6 @@ E = [E ; E(end)*ones(length(sigma5_lin),1)];
     end
 % Energies of the different Tension-Compression cycles
     E_diss_strain = E_diss_cycle(end);
-%     U_max = U_max2 + U_max4;
     U_max = E_diss2 - 1/2*(E_diss2+E_diss3) + E_diss4 - 1/2*(E_diss4+E_diss5);
     Loss_factor(end+1) = E_diss_strain / (2 * pi * U_max)
 end

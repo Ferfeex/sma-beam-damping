@@ -42,38 +42,7 @@ grid on
 
 delta_T = 0.01;
 
-%Tentativo 1
-
-% while sigma(end) > C_A * (T(end) - Af)
-%     T(end+1) = T(end) + delta_T;
-%     eps(end+1) = eps(end);
-%     x = csi(end) / 2 * (cos(a_A * (T(end) - As - sigma(end) / C_A)) + 1);
-%     y = @(x) x - csi(end) / 2 * (cos(a_A * (T(end) - As - (sigma(end) + (E_a + x * (E_m - E_a)) * (eps(end) - eps_L * x) + (E_a + csi(end) * (E_m - E_a)) * (eps_L * csi(end) - eps(end)) + Teta * delta_T) / C_A)) + 1);
-%     dy = @(x) 1 + csi(end) / 2 * sin(a_A * (T(end) - As - (sigma(end) + (E_a + x * (E_m - E_a)) * (eps(end) - eps_L * x) + (E_a + csi(end) * (E_m - E_a)) * (eps_L * csi(end) - eps(end)) + Teta * delta_T) / C_A)) * a_A / C_A * (eps_L * (sigma(end) + E_a + x * (E_m - E_a)) - (E_m - E_a) * (eps(end) - eps_L * x));
-%     [csi(end+1,1),~] = Newton_sempl(x,1000,1e-10,y,dy,2);
-%     sigma(end+1) = sigma(end) + (E_a + csi(end) * (E_m - E_a)) * (eps(end) - eps_L * csi(end)) + (E_a + csi(end-1) * (E_m - E_a)) * (eps_L * csi(end-1) - eps(end)) + Teta * delta_T;
-% end
-
-% Tentativo 2
-% while sigma(end) > C_A * (T(end) - Af)
-%     T(end+1) = T(end) + delta_T;
-%     xi = csi(end);
-%     E = @(xi) E_a + xi * (E_m - E_a);
-%     A = @(xi) a_A * (T(end) - As - (E(xi) * (eps(end) - eps_L * xi) + Teta * (T(end) - T_0)) / C_A);
-%     dA = @(xi) - a_A / C_A * (-eps_L * E(xi) + (eps(end) - eps_L * xi) * (E_m - E_a));
-%     y = @(xi) xi - 1/2 * (cos(A(xi)) + 1);
-%     dy = @(xi) 1 - 1/2 * sin(A(xi) * dA(xi));
-%     err_norm = 1;
-%     while err_norm >= 1e-3
-%         xii = xi - 2 * y(xi) / dy(xi);
-%         err_norm = norm(xi - xii) / norm(xi);
-%         xi = xii;
-%     end
-%     csi(end+1,1) = xi;
-%     sigma(end+1,1) = E(csi(end)) * (eps - eps_L * csi(end)) + Teta * (T(end) - T_0);
-% end    
-
-%Tentativo 3 WINNER CAZZO
+% Heating at constant strain: Newton iteration on the stress at every temperature step
 while sigma(end) > C_A * (T(end) - Af)
     T(end+1,1) = T(end) + delta_T;
     s = sigma(end);
@@ -95,17 +64,6 @@ while sigma(end) > C_A * (T(end) - Af)
 sigma(end+1,1) = s;
 csi(end+1,1) = xi(sigma(end));
 end
-
-% sigma_0 = 128;
-% csi_0 = 0.046;
-% eps_0 = 0.005;
-% E_0 = E_a + csi_0 * (E_m - E_a);
-% K_0 = sigma_0 - E_0 * (eps_0 - csi_0 * eps_L);
-% T_0 = 20;
-% 
-% while sigma(end) > C_A * (T(end) - Af)
-%     s = sigma(end);
-%     xi = csi(end)
 
 R1 = C_M * (T - Ms) + sigma_f_cr;
 R1 = [R1 > sigma_f_cr] .* R1;
