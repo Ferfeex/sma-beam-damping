@@ -27,6 +27,9 @@ function res = run_case(c, varargin)
 %     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
 %                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
 %                   Slow motion, 25 fps, deflection exaggerated; works for every case.
+%     'animate_compare' false (default) | true | 'gif' | 'both': the same for the SMA beam TOGETHER WITH the linear
+%                   reference beam (src/animate_compare.m): beams overlaid + both mid-span histories with moving
+%                   markers; GIF = <outdir>/<case>_animation_compare.gif. Runs the linear reference if needed.
 %     'animate_opts' cell of extra name/value options for animate_beam, e.g. {'speed',0.05,'strain',false}
 %
 %   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
@@ -38,7 +41,7 @@ if nargin == 0
     return
 end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}});
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'dashboard',true);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -90,11 +93,12 @@ fprintf('mid-span peaks [mm] (t[s] : height): ');
 fprintf('%.3f:%.2f  ', res.peaks(1:min(8,end),:)');
 fprintf('\n');
 
-ref = [];
-if opt.compare_hle
+ref = [];  refc = [];
+if opt.compare_hle || ~isequal(opt.animate_compare,false)    % the comparison animation needs the linear reference too
     cr = case_hle_linear(); cr.time.Tf = cfg.time.Tf;
-    ref = linear_beam_solve(cr);
-    res.reference = ref;
+    refc = linear_beam_solve(cr);  refc.cfg = cr;
+    res.reference = refc;
+    if opt.compare_hle, ref = refc; end                       % ref = what the figures overlay
 end
 
 show = any(strcmp(opt.figures,{'show','both'}));
@@ -139,21 +143,25 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
     end
     if ~show, close(f); else, drawnow; end
 end
-if ~isequal(opt.animate,false) && ~isempty(opt.animate)
-    am = opt.animate;  if islogical(am) || isnumeric(am), am = ternary_(logical(am),'play','none'); end
-    if ~any(strcmp(am,{'play','gif','both','none'})) && ~strcmp(am,'true')
-        error('run_case: option ''animate'' must be false, true, ''gif'' or ''both''');
+[am,doshow,dogif] = anim_mode_(opt.animate,'animate');
+if ~strcmp(am,'none')
+    ao = {'show', doshow};
+    if dogif
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
     end
-    if strcmp(am,'true'), am = 'play'; end
-    if ~strcmp(am,'none')
-        ao = {'show', any(strcmp(am,{'play','both'}))};
-        if any(strcmp(am,{'gif','both'}))
-            if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
-            ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
-        end
-        res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
-        fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+    res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
+    fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+end
+[am,doshow,dogif] = anim_mode_(opt.animate_compare,'animate_compare');
+if ~strcmp(am,'none')
+    ao = {'show', doshow};
+    if dogif
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation_compare.gif'])}];
     end
+    res.animation_compare = animate_compare(res, refc, cfg, refc.cfg, ao{:}, opt.animate_opts{:});
+    fprintf('comparison animation done in %.1f s (%d frames)\n', res.animation_compare.runtime_s, res.animation_compare.nframes);
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
@@ -162,8 +170,15 @@ if opt.save_mat
 end
 end
 
-function v = ternary_(c,a,b)
-if c, v = a; else, v = b; end
+function [mode,doshow,dogif] = anim_mode_(v,name)
+% value of an 'animate*' option -> 'none' | 'play' | 'gif' | 'both'
+if isempty(v) || isequal(v,false) || isequal(v,0), mode = 'none';
+elseif islogical(v) || isnumeric(v), mode = 'play';
+elseif strcmp(v,'true'), mode = 'play';
+elseif any(strcmp(v,{'play','gif','both','none'})), mode = v;
+else, error('run_case: option ''%s'' must be false, true, ''gif'' or ''both''', name);
+end
+doshow = any(strcmp(mode,{'play','both'}));  dogif = any(strcmp(mode,{'gif','both'}));
 end
 
 function v = getfield_or(s,f,d)
