@@ -323,8 +323,6 @@ presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --n
   Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.
 * The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
   a MATLAB run (a MATLAB run of the original code was not available).
-* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; this code uses `||`
-  (effect on the results < 1 %, see `KNOWN_ISSUES.md` #1 and `CHANGES.md`). Several smaller issues of the original are listed there too.
 * The force term of the linear transient case was lost in the original files and is inferred.
 
 ## Roadmap
