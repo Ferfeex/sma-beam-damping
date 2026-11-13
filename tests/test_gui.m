@@ -33,7 +33,7 @@ for k = 1:numel(S.C)
 end
 check('case selection toggles p fields / compare for linear cases', okall);
 set(H.list,'value',4); sma_gui('select',fig);
-check('pulse case: estimate shown, no "very slow" warning with the fast code path', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
+check('pulse case: estimate shown, no "very slow" warning', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
 set(H.list,'value',5); sma_gui('select',fig);
 check('SE case: p_SE.mat loaded (4 coefficients, 5th field disabled)', strcmp(get(H.pe(5),'enable'),'off') && ~isempty(get(H.pe(4),'string')));
 set(H.list,'value',1); sma_gui('select',fig);
@@ -127,7 +127,7 @@ if ~isempty(shotdir) && nd == 1
 end
 close(setdiff(findobj(0,'type','figure'), fig));
 set(H.dash,'value',0); setappdata(fig,'LastResult',[]); sma_gui('run',fig); r8 = getappdata(fig,'LastResult');
-check('One window unticked: separate windows as before', ~isempty(r8) && numel(findobj(0,'tag','sma_dashboard')) == 0 && numel(findobj(0,'type','figure')) >= 4);
+check('One window unticked: separate result windows', ~isempty(r8) && numel(findobj(0,'tag','sma_dashboard')) == 0 && numel(findobj(0,'type','figure')) >= 4);
 close(setdiff(findobj(0,'type','figure'), fig));
 set(H.dash,'value',1); set(H.cmp,'value',0); set(H.fld,'value',0); set(H.figs,'value',3);
 set(H.canim,'value',1); set(H.fanim,'value',1); set(H.gif,'value',1); set(H.anim,'value',0);

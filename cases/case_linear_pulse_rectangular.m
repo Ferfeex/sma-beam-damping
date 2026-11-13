@@ -1,10 +1,10 @@
 function cfg = case_linear_pulse_rectangular()
-% LINEAR GFRP BEAM, RECTANGULAR PULSE  (Transient_linear/Rectangular/FEM1D.m, thesis 3.2 / Fig. 3.23)
+% LINEAR GFRP BEAM, RECTANGULAR PULSE  (thesis 3.2 / Fig. 3.23)
 %   As case_linear_pulse_incremental but a rectangular pulse of 2*18.75 N, ramp 1e-4 s,
-%   released at t = 0.022 s. (The stored file's E/rho are those of the GFRP beam.)
+%   released at t = 0.022 s.
 cfg = default_config();
 cfg.name = 'linear_pulse_rectangular';
-cfg.description = 'Linear GFRP beam, rectangular pulse 37.5 N until 0.022 s (Transient_linear/Rectangular)';
+cfg.description = 'Linear GFRP beam, rectangular pulse 37.5 N until 0.022 s';
 cfg.model = 'linear';
 cfg.mat.E = 46e3;  cfg.mat.rho = 1.88e-09;
 cfg.damping.zeta = 0.013;

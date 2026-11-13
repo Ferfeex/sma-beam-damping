@@ -5,9 +5,7 @@ octave-workspace
 # large binary data: never commit
 *.mat
 !data/*.mat
-!archive/loss_variants/xiT0nullo/*.mat
-!tests/reference/*.mat
-# MATLAB/Octave figures and autosaves (original .fig files are on the Drive, thesis PDF has the plots)
+# MATLAB/Octave figures and autosaves
 *.fig
 *.asv
 *~

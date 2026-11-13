@@ -3,12 +3,11 @@ function cfg = case_prestrain_se()
 %   SMA beam 30 x 20 mm above Af (T0 = -10 degC in the thesis phase-diagram convention),
 %   pre-stressed with sigma0 = 60 MPa, one martensite fraction (xi_s+), f_ref = 21 Hz.
 %   The loss-factor curve here is a function of STRESS (data/p_SE.mat, from brinson/PrestrainSE.m).
-%   Original: Loss/SE_pre-strain/FEM1D.m + myfun.m.  MATLAB uses ode15s as in the original;
-%   Octave's ode15s (SUNDIALS) fails at the first stress reversal, so in Octave the
-%   ode23t stand-in is used.  SLOW: 0.40 s of 0.8 s took ~30 min in Octave.
+%   MATLAB uses ode15s; Octave's ode15s (SUNDIALS) fails at the first stress reversal, so in
+%   Octave the ode23t substitute is used (see cfg.solver.name_octave).
 cfg = default_config();
 cfg.name = 'prestrain_se';
-cfg.description = 'Super-elastic beam with 60 MPa pre-stress (Loss/SE_pre-strain)';
+cfg.description = 'Super-elastic beam with 60 MPa pre-stress';
 cfg.model = 'one_phase_SE';
 cfg.geom.b = 30;  cfg.geom.thick = 20;
 cfg.mat.ssp = 35;

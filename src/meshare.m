@@ -1,8 +1,7 @@
 function meshare(epsyylon,xysp,xysm,xyT,t,thick,L,fig,lab)
 % MESHARE  strain and martensite-fraction fields (xi_s+, xi_s-, xi_T) over the beam at the LAST
 % time step (thesis Fig. 'Simulazione_lunga'). Uses src/smooth_mean2d.m for smoothing.
-% thick / L are arguments (default 20 / 1000 as in the original, which
-% hard-coded the 30x20 mm section; the base beam is 15x10 mm -> pass 10).
+% thick / L are arguments (default 20 / 1000, the 30x20 mm section; the base beam is 15x10 mm -> pass 10).
 if nargin < 6, thick = 20; end
 if nargin < 7, L = 1000; end
 if nargin < 8 || isempty(fig), fig = figure; end   % draw in the figure handed over by run_case (no second, empty window)
@@ -56,7 +55,7 @@ for ind = length(xysp(1,:))
     h = colorbar;
     ylabel(h, '\xi_s^+')
     set(h, 'Fontsize', 10)
-    hTitle = title([sprintf('t = %.3g s', t(end)) lab.suffix]);   % the original had the fixed text 't = 0.8'
+    hTitle = title([sprintf('t = %.3g s', t(end)) lab.suffix]);
     set(hTitle, 'Fontsize', 14)
     subplot(3,1,2)
     mesh(xx,yy,ximi)

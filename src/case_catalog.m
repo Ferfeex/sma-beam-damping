@@ -6,11 +6,11 @@ function C = case_catalog()
 %   text       cell array of description lines
 %   t_ref      estimated runtime of the full default duration [s], GNU Octave, 1 core
 %   Tf_def     default duration of the case [s]
-%   slow       true if a default run takes more than ~20 min (none at the moment, thanks to the fast code path)
+%   slow       true if a default run takes more than ~20 min (none at the moment)
 %   model      'two_phase' | 'one_phase_SE' | 'linear'
 %   p_file     file in data/ with the loss-factor polynomial ('' for linear cases)
 %   x_ref      damping.x_ref of the case (strain, or stress for the SE case)
-% The runtimes are the ones measured in Octave on a Linux box with the fast code path (README, "The cases", PERF_NOTES.md); a laptop will differ.
+% The runtimes are the ones measured in Octave on a Linux box with the fast code path (README, "The cases"); a laptop will differ.
 rows = {
  'base', 'Base case: free vibration of the SMA beam', 10, false, {
    'Cu-Al-Zn-Mn beam 1000 x 15 x 10 mm, simply supported, ferro-elastic.'
@@ -26,18 +26,18 @@ rows = {
    'Shows what the SMA damping adds. No loss-factor polynomial is used.'}
  'pulse', 'Force pulse on the SMA beam (200 N / 0.02 s)', 115, false, {
    'Rectangular force pulse on the 30 x 20 mm SMA beam, starting at rest'
-   '(thesis 3.3.2, Fig. 3.23). About 2 minutes in Octave with the fast code path'
-   '(it takes hours without the fast code path; 64000 solver steps).'}
+   '(thesis 3.3.2, Fig. 3.23). About 2 minutes in Octave'
+   '(64000 solver steps).'}
  'prestrain_se', 'Pre-stressed super-elastic beam (60 MPa)', 45, false, {
    'SMA beam 30 x 20 mm above Af, pre-stressed with 60 MPa, one martensite'
    'fraction (thesis 3.3.3). The loss factor is a function of STRESS (p_SE.mat).'
-   'Under a minute in Octave with the fast code path (hours without the fast code path).'}
+   'Under a minute in Octave.'}
  'linear_pulse_incremental', 'Linear GFRP beam, ramp load pulse', 17, false, {
    'Linear GFRP beam (E = 46 GPa), force ramps up to 50 N at t = 0.033 s and is'
-   'then released (thesis 3.2, Fig. 3.21). The force term is inferred (KNOWN_ISSUES).'}
+   'then released (thesis 3.2, Fig. 3.21). The force history is reconstructed from the thesis figure.'}
  'linear_pulse_rectangular', 'Linear GFRP beam, rectangular load pulse', 17, false, {
    'Linear GFRP beam, rectangular pulse of 37.5 N until t = 0.022 s'
-   '(thesis 3.2, Fig. 3.23). The force term is inferred (KNOWN_ISSUES).'}
+   '(thesis 3.2, Fig. 3.23). The force history is reconstructed from the thesis figure.'}
  };
 C = struct('name',{},'label',{},'text',{},'t_ref',{},'Tf_def',{},'slow',{},'model',{},'p_file',{},'x_ref',{});
 for k = 1:size(rows,1)

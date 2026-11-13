@@ -1,6 +1,6 @@
 function res = sma_beam_solve(cfg)
 % SMA_BEAM_SOLVE  Transient vibration of a simply supported Cu-Al-Zn-Mn SMA beam
-%   (final method of the thesis, formerly Loss/FEM1D.m and its 5 copies).
+%   (final method of the thesis).
 %
 %   The beam is solved as a LINEAR ODE system  M a + C v + K u = F  that is
 %   advanced with ode23t (ode23s in Octave); the SMA nonlinearity enters through
@@ -11,17 +11,16 @@ function res = sma_beam_solve(cfg)
 %   res = sma_beam_solve(cfg)   cfg: struct from a cases/case_*.m file (see case_base.m)
 %   res.TT, res.XX   time [s] and state [velocities(30) displacements(30)]
 %   res.midspan      vertical displacement at x = L/2 [mm] (Hermite interpolation, nodes 8-9 for N=16)
-%   res.midspan_node old mid-span value: node 9, x = res.x_midspan_node (533 mm); res.col = its column in XX
 %   res.fields       (optional) strain / martensite fractions / stress at every step
 %
-% Variable names (N, Ea, Emp, ..., KFF, CFF, LF, xisp, ...) are the original ones.
+% Variable names follow the thesis (N, Ea, Emp, ..., KFF, CFF, LF, xisp, ...).
 
-% ---- globals used by the OutputFcn (the original relied on "clear all" to reset them) ----
+% ---- globals used by the OutputFcn (reset here at the start of every solve) ----
 global KFF CFF LF FF FFF
-global xisp xism xiT xisp0 xism0 xiT0 indp_old indm_old sigma_old s p1 m1 tt yy
+global xisp xism xiT xisp0 xism0 xiT0 indp_old indm_old sigma_old s p1 m1
 global epsyylon xysp xysm xyT sigma0 epsilon0
 global snap_n snap_ns snap_gi snap_grid snap_T snap_P snap_M snap_Tm   % optional snapshots of the martensite fractions (cfg.post.n_snapshots)
-p1 = []; m1 = []; tt = []; yy = [];
+p1 = []; m1 = [];
 FF = []; FFF = 0;
 sigma0 = []; epsilon0 = [];
 
@@ -48,11 +47,7 @@ nip = (N-1)*numel(csi)*numel(y);        % integration points (750 for N=16)
 % ---- optional extra layers (composite: GFRP core + SMA layers) ----
 MFF_ADD = zeros(size(MFF));  KFF_ADD = zeros(size(MFF));  CFF_ADD = zeros(size(MFF));
 if isfield(cfg,'hle') && ~isempty(cfg.hle)
-    if isfield(cfg.hle,'matrices_file') && ~isempty(cfg.hle.matrices_file)
-        hle = load(cfg.hle.matrices_file);     % e.g. the 2020 Matrices.mat (used by the tests)
-    else
-        hle = composite_matrices(cfg.hle);
-    end
+    hle = composite_matrices(cfg.hle);
     MFF_ADD = hle.MFF_HLE;  KFF_ADD = hle.KFF_HLE;  CFF_ADD = hle.CFF_HLE;
 end
 MFF = MFF + MFF_ADD;
@@ -109,36 +104,29 @@ else
     xism = []; xiT = []; xysm = []; xyT = [];
 end
 
-% ---- PERFORMANCE OPTIONS (branch perf-experiments) ----
-pfo = struct('vec',1,'hist',0,'fast_rhs',1,'jac',1,'sets',1);   % defaults = fast path (see PERF_NOTES.md); cfg.perf.<flag> = 0 restores the original code path
-if isfield(cfg,'perf'), fn_ = fieldnames(cfg.perf); for k_ = 1:numel(fn_), pfo.(fn_{k_}) = cfg.perf.(fn_{k_}); end, end
-pf = [];
-if pfo.vec
-    npt = numel(csi)*numel(y);
-    wy = trapz(-y, eye(numel(y)));  wc = trapz(csi, eye(numel(csi)));
-    W = wy(:)*wc;                                   % weights of trapz(csi,trapz(-y,.))
-    BBc = {bm.BB11,bm.BB12,bm.BB13,bm.BB14, bm.BB21,bm.BB22,bm.BB23,bm.BB24, ...
-           bm.BB31,bm.BB32,bm.BB33,bm.BB34, bm.BB41,bm.BB42,bm.BB43,bm.BB44};
-    WB = zeros(npt,16);                             % column a+4*(c-1) <-> BB_ac
-    for a_ = 1:4, for c_ = 1:4, WB(:,a_+4*(c_-1)) = W(:).*BBc{4*(a_-1)+c_}(:); end, end
-    I_ = zeros(16*(N-1),1); J_ = I_;
-    for k_ = 1:N-1
-        g = zeros(4,1);
-        for a_ = 1:4, g(a_) = find(Extr(a_,:,k_)); end
-        [aa,cc] = ndgrid(1:4,1:4);
-        I_((k_-1)*16+(1:16)) = g(aa(:));  J_((k_-1)*16+(1:16)) = g(cc(:));
-    end
-    Eall = zeros(4*(N-1),2*N-2);
-    for k_ = 1:N-1, Eall(4*(k_-1)+1:4*k_,:) = Extr(:,1:2*N-2,k_); end   % rows of Extr, free dofs only
-    pf = struct('b',b,'npt',npt,'nel',N-1,'WB',WB,'I',I_,'J',J_,'ndof',2*N,'nfree',2*N-2);
-    Bfull = B*Eall;
-else
-    Bfull = [];
+% ---- vectorised element integration: weights of the trapezoidal rule and the strain matrix ----
+npt = numel(csi)*numel(y);
+wy = trapz(-y, eye(numel(y)));  wc = trapz(csi, eye(numel(csi)));
+W = wy(:)*wc;                                   % weights of trapz(csi,trapz(-y,.))
+BBc = {bm.BB11,bm.BB12,bm.BB13,bm.BB14, bm.BB21,bm.BB22,bm.BB23,bm.BB24, ...
+       bm.BB31,bm.BB32,bm.BB33,bm.BB34, bm.BB41,bm.BB42,bm.BB43,bm.BB44};
+WB = zeros(npt,16);                             % column a+4*(c-1) <-> BB_ac
+for a_ = 1:4, for c_ = 1:4, WB(:,a_+4*(c_-1)) = W(:).*BBc{4*(a_-1)+c_}(:); end, end
+I_ = zeros(16*(N-1),1); J_ = I_;
+for k_ = 1:N-1
+    g = zeros(4,1);
+    for a_ = 1:4, g(a_) = find(Extr(a_,:,k_)); end
+    [aa,cc] = ndgrid(1:4,1:4);
+    I_((k_-1)*16+(1:16)) = g(aa(:));  J_((k_-1)*16+(1:16)) = g(cc(:));
 end
+Eall = zeros(4*(N-1),2*N-2);
+for k_ = 1:N-1, Eall(4*(k_-1)+1:4*k_,:) = Extr(:,1:2*N-2,k_); end   % rows of Extr, free dofs only
+pf = struct('b',b,'npt',npt,'nel',N-1,'WB',WB,'I',I_,'J',J_,'ndof',2*N,'nfree',2*N-2);
+Bfull = B*Eall;
 
 % field recording: 0 = none, 2 = latest step only (enough for the field plots), 1 = full history
-histmode = pfo.hist;
-if cfg.post.keep_fields && histmode == 0, histmode = 2; end
+histmode = 0;
+if cfg.post.keep_fields, histmode = 2; end
 if isfield(cfg.post,'keep_field_history') && cfg.post.keep_field_history, histmode = 1; end
 
 % ---- snapshots of the martensite fractions at ~cfg.post.n_snapshots evenly spaced times (default 0 = off) ----
@@ -151,15 +139,11 @@ snap_ns = 0;  snap_gi = 1;  snap_grid = linspace(T0,Tf,max(snap_n,1));
 snap_T = zeros(1,snap_n);  snap_P = zeros(nip,snap_n);  snap_M = zeros(nip*strcmp(model,'two_phase'),snap_n);  snap_Tm = snap_M;
 
 % ---- parameters handed to the OutputFcn ----
-prm = struct('N',N,'b',b,'Extr',Extr,'Extr_tr',Extr_tr,'csi',csi,'y',y,'B',B, ...
-    'BB11',bm.BB11,'BB12',bm.BB12,'BB13',bm.BB13,'BB14',bm.BB14, ...
-    'BB21',bm.BB21,'BB22',bm.BB22,'BB23',bm.BB23,'BB24',bm.BB24, ...
-    'BB31',bm.BB31,'BB32',bm.BB32,'BB33',bm.BB33,'BB34',bm.BB34, ...
-    'BB41',bm.BB41,'BB42',bm.BB42,'BB43',bm.BB43,'BB44',bm.BB44, ...
+prm = struct('N',N, ...
     'Ea',Ea,'Emp',Emp,'ssp',ssp,'sfp',sfp,'eps_Lp',eps_Lp,'p',p,'f_ref',f_ref, ...
     'newton_maxit',cfg.numerics.newton_maxit, ...
     'verbose',cfg.numerics.verbose, ...
-    'perf',struct('vec',pfo.vec,'sets',pfo.sets,'hist',histmode),'pf',pf,'Bfull',Bfull, ...
+    'histmode',histmode,'pf',pf,'Bfull',Bfull, ...
     'has_pulse',has_pulse,'t_rise',0,'t_end',0,'dt_restart',1e-5);
 if has_pulse
     prm.t_rise = cfg.load.t_rise;  prm.t_end = cfg.load.t_end;
@@ -190,25 +174,11 @@ else
 end
 
 % ---- TIME INTEGRATION (restarts whenever the OutputFcn returns status=1) ----
-if pfo.fast_rhs
-    Minv = inv(MFF);
-    rhs = @(T,X) fun_ode_fast(T,X,Minv,N);
-else
-    rhs = @(T,X) fun_ode_1D(T,X,MFF,N);
-end
-if pfo.jac
-    Minv = inv(MFF);
-    jopt = {'Jacobian', @(T,X) jac_ode_fast(T,X,Minv,N)};
-    options2 = odeset(options2, jopt{:});
-    options  = odeset(options,  jopt{:});
-end
-if isfield(pfo,'solver') && ~isempty(pfo.solver), solver = pfo.solver; end
-if isfield(pfo,'abstol') && ~isempty(pfo.abstol)
-    options2 = odeset(options2,'AbsTol',pfo.abstol); options = odeset(options,'AbsTol',pfo.abstol);
-end
-if isfield(pfo,'reltol') && ~isempty(pfo.reltol)
-    options2 = odeset(options2,'RelTol',pfo.reltol); options = odeset(options,'RelTol',pfo.reltol);
-end
+Minv = inv(MFF);                                       % constant inverse mass matrix
+rhs = @(T,X) ode_rhs(T,X,Minv,N);
+jopt = {'Jacobian', @(T,X) ode_jacobian(T,X,Minv,N)};  % analytic Jacobian [-Minv*C -Minv*K; I 0]
+options2 = odeset(options2, jopt{:});
+options  = odeset(options,  jopt{:});
 solve = str2func(solver);
 tic_start = tic;
 [T,X] = solve(rhs,[T0 Tf],X0,options);
@@ -231,18 +201,16 @@ end
 
 % ---- MID-SPAN VERTICAL DISPLACEMENT ----
 % res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite through nodes 8 and 9 for N = 16, see
-% midspan_deflection.m). Earlier versions used the value of node 9 (x = 533 mm); it is kept as
-% res.midspan_node (column res.col of XX, position res.x_midspan_node).
-[midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
-col = mi.col;
+% midspan_deflection.m).
+midspan = midspan_deflection(XX, N, cfg.geom.L);
 if cfg.post.shift_to_first_max
-    % the time axis starts at the first (largest) mid-span maximum, as in the original
+    % the time axis starts at the first (largest) mid-span maximum
     indice = find(midspan == max(midspan));
     indice = indice(1);
     t_shift = TT(indice);
     TT = TT(indice:end)-TT(indice);
     XX = XX(indice:end,:);
-    midspan = midspan(indice:end);  midspan_node = midspan_node(indice:end);
+    midspan = midspan(indice:end);
     if histmode == 1                          % shift only a full history
         epsyylon = epsyylon(:,indice:end);
         xysp = xysp(:,indice:end);
@@ -262,11 +230,8 @@ if snap_ns > 0                            % martensite fractions at the sampled 
 end
 res.TT = TT;
 res.XX = XX;
-res.col = col;
 res.midspan = midspan;                    % [mm] at x = L/2
 res.x_midspan = cfg.geom.L/2;
-res.midspan_node = midspan_node;          % [mm] old value: node mi.node, x = res.x_midspan_node
-res.x_midspan_node = mi.x_node;
 res.runtime_s = toc(tic_start);
 res.nrestart = nrestart;
 if cfg.post.keep_fields

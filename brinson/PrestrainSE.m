@@ -143,8 +143,7 @@ figure
 k = 0:key;
 ss=CMp*(T0-Ms)+sfp-0.9*((CMp*(T0-Ms)+sfp-60)/(key+1))*k;
 p = polyfit(ss,LF,3);
-% [changed from the original] the original never saved p (data/p_SE.mat was saved by hand). Written to results/p_SE_regen.mat;
-% the shipped data/p_SE.mat is NOT overwritten.
+% The regenerated polynomial is written to results/p_SE_regen.mat; the shipped data/p_SE.mat is not overwritten.
 here = fileparts(mfilename('fullpath'));
 if ~exist(fullfile(here,'..','results'),'dir'), mkdir(fullfile(here,'..','results')); end
 save(fullfile(here,'..','results','p_SE_regen.mat'),'p');

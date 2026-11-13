@@ -62,21 +62,14 @@ cfg.solver.AbsTol       = [];
 cfg.solver.max_restarts = 1e6;
 
 % ---- numerics -------------------------------------------------------------------------------------------------
-cfg.numerics.newton_maxit = 100;    % cap on the Newton iterations per step (the loop runs while ANY point has not converged, || - see KNOWN_ISSUES.md #1)
-cfg.numerics.verbose      = false;  % true = original per-step printout
+cfg.numerics.newton_maxit = 100;    % cap on the Newton iterations per step (the loop runs while ANY point has not converged)
+cfg.numerics.verbose      = false;  % true = print every step
 
 % ---- post-processing --------------------------------------------------------------------------------------------
-cfg.post.shift_to_first_max = true; % time axis starts at the first mid-span maximum (as in the original)
+cfg.post.shift_to_first_max = true; % time axis starts at the first mid-span maximum
 cfg.post.keep_fields        = false; % keep the strain / martensite fields of the LAST step (used by plot_fields)
 cfg.post.keep_field_history = false; % with keep_fields: keep them for EVERY step (large and slow, O(n^2))
 cfg.post.n_snapshots       = 0;     % >0: record the martensite fractions at ~this many evenly spaced times (res.snapshots; run_case sets 100 for the xt / fields-animation options)
-
-% ---- performance switches (see PERF_NOTES.md). 1 = fast path, 0 = original code path (identical physics) ----
-cfg.perf.vec      = 1;   % vectorised element integration/assembly (replaces the trapz loops) and strain B*Extr
-cfg.perf.sets     = 1;   % logical masks instead of setdiff/union/ismember in the OutputFcn
-cfg.perf.hist     = 0;   % 1 = record tt, yy and the per-step strain/martensite fields (never read back; slow O(n^2))
-cfg.perf.fast_rhs = 1;   % constant inv(M) instead of M\ at every right-hand-side call
-cfg.perf.jac      = 1;   % analytic Jacobian [-Minv*C -Minv*K; I 0] handed to the solver
 
 % ---- extra elastic layers (composite only) --------------------------------------------------------
 cfg.hle = [];

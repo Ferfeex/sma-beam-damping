@@ -2,10 +2,9 @@ function cfg = case_composite()
 % COMPOSITE  GFRP / SMA / GFRP sandwich beam (thesis chapter 4.1, configuration 1).
 %   SMA core 15 x 10 mm (nonlinear) + two GFRP skins (linear, total thickness 12 mm).
 %   Reference frequency 14.5 Hz, loss factor taken at strain 0.0007.
-%   Original: Loss/Composite/FEM1D.m + Composite_matrices.m + Matrices.mat.
 cfg = default_config();
 cfg.name = 'composite';
-cfg.description = 'GFRP/SMA/GFRP sandwich, free vibration (Loss/Composite)';
+cfg.description = 'GFRP/SMA/GFRP sandwich, free vibration';
 cfg.damping.f_ref = 14.5;
 cfg.damping.x_ref = 0.0007;
 cfg.init.scale = 0.663;
