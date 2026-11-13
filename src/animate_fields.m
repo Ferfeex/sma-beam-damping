@@ -54,7 +54,7 @@ for i = 1:nm
     ylabel('h [mm]');  title(labs{i},'fontsize',9);
     set(ax,'xticklabel',[]);
     hand_colorbar(fig,[0.84 yb 0.025 hp],clim(i,:),jet(128),'','%.4f');
-    if i == 1, htt = text(0.5,1.25,'','units','normalized','horizontalalignment','center','fontsize',10); end
+    if i == 1, htt = get(ax,'title'); end
 end
 yb = bot;
 ax3 = axes('position',[0.11 yb 0.70 hp]); hold on
@@ -62,7 +62,7 @@ plot(Tu, res.midspan(iu), 'color',[0.6 0.6 0.6]);
 hm = plot(t(1),mid(1),'ro','markerfacecolor','r','markersize',6);
 axis([t(1) t(end) 1.1*min(res.midspan) 1.1*max(res.midspan)]); grid on; box on
 xlabel('time t [s]'); ylabel(sprintf('w(x=%g mm) [mm]',L/2));
-upd = @(j) local_update(j, him, G, hm, t, mid, htt);
+upd = @(j) local_update(j, him, G, hm, t, mid, htt, labs{1});
 
 dogif = ~isempty(o.gif);  frames = cell(nfr,1);
 if dogif
@@ -90,9 +90,9 @@ end
 out.runtime_s = toc(t_start);
 end
 
-function local_update(j, him, G, hm, t, mid, htt)
+function local_update(j, him, G, hm, t, mid, htt, lab1)
 for i = 1:numel(him), set(him(i),'cdata',G{i}(:,:,j)); end
 set(hm,'xdata',t(j),'ydata',mid(j));
-set(htt,'string',sprintf('martensite fractions, t = %.3f s',t(j)));
+set(htt,'string',sprintf('t = %.3f s    %s',t(j),lab1),'fontsize',9);
 drawnow;
 end
