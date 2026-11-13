@@ -319,7 +319,7 @@ Inspected `.mat` contents (examples): `IN_COND` 3810×1 (ODE_NEWT: 3780×1), `dx
 ### 5.5 Third-party code and licences
 - `smooth2a.m` (Greg Reeves, Caltech, March 2009; credits to Kelly Hilands, Penn State, and Olof Liungman, Gothenburg): MATLAB File Exchange code, **no licence text in the file**. File Exchange files are usually BSD-licensed, but this is not confirmed here. It is used only for plotting. Safest: replace it (`conv2`/`imgaussfilt`) or fetch it at run time and credit it. 7 copies.
 - The Brinson / Poorasadion models are from published papers; no copied code was recognised, but I cannot prove independence (**unclear**). Cite the papers in the README.
-- No licence/copyright header in any of the authored files. The repo needs a licence chosen by the author.
+- No licence/copyright header in any of the code files. The repository needs a licence (MIT, see `LICENSE`).
 - Requires base MATLAB + ODE suite; `fsolve` (Optimization Toolbox) in `ODE_NEWT`. Octave compatibility was not tested. Thesis PDF is **not** in the code folder.
 
 ### 5.6 Italian, encoding, tone
@@ -330,8 +330,8 @@ Inspected `.mat` contents (examples): `IN_COND` 3810×1 (ODE_NEWT: 3780×1), `dx
 - **All 114 `.m` files use CRLF** line endings.
 - Few functions have help text or headers; no README.
 
-### 5.7 Files that probably should not be public (author's decision)
+### 5.7 Files that probably should not be public (to be decided)
 - Raw simulation outputs (≥100 MB `.mat`, large `.fig`), screenshot `Simulazione_lunga.JPG`, `untitled*` figures and `1stResults.mat`: regenerable or of unclear provenance.
 - Broken/abandoned prototypes (`DXI_algebric/`, `FEM2D/`, `Mod/reversalEvent.m`) unless documented as such.
 - No personal data (emails, names, tokens) was found in the code apart from the third-party credits in `smooth2a.m`. The thesis PDF's redistribution rights (university) should be checked before it goes next to the code.
-- Provenance question: which script created which thesis figure is **unclear**; a `figures/` README mapping would need the author's memory.
+- Provenance question: which script created which thesis figure is **unclear**; a `figures/` README mapping cannot be reconstructed from the files alone.

@@ -1,7 +1,7 @@
 # sma-beam-damping
 
 Finite-element simulation of the **vibration and damping of a shape-memory-alloy (SMA) beam**,
-written in MATLAB for a master's thesis and cleaned up here so that it runs in **GNU Octave**
+written in MATLAB for a master's thesis and ported here so that it runs in **GNU Octave**
 (and still in MATLAB).
 
 > Federico Aghito, *Theoretical and numerical modeling of Shape Memory Alloy based structures and
@@ -249,7 +249,7 @@ compat/octave/          ode23t stand-in for Octave
 tests/                  run_tests.m: refactored code vs the original 2020 scripts; test_gui.m: the start window
 tools/                  make_loss_factor_figure.m
 LICENSE                 MIT
-docs/                   figures; CODE_MAP_original_analysis.md = the original code map (before the cleanup)
+docs/                   figures; CODE_MAP_original_analysis.md = the map of the original code
 archive/                older attempts (not maintained), see archive/README.md
 CHANGES.md              what differs from the original thesis code (kept / moved / removed / changed) and the verification
 KNOWN_ISSUES.md         bugs and oddities of the original code
@@ -299,7 +299,7 @@ presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --n
   Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.
 * The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
   a MATLAB run (a MATLAB run of the original code was not available).
-* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; the cleaned code uses `||`
+* The Newton loop of the 2020 code used `&&` where `||` was almost certainly intended; this code uses `||`
   (effect on the results < 1 %, see `KNOWN_ISSUES.md` #1 and `CHANGES.md`). Several smaller issues of the original are listed there too.
 * The force term of the linear transient case was lost in the original files and is inferred.
 

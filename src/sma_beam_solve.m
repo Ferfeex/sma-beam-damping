@@ -231,7 +231,7 @@ end
 
 % ---- MID-SPAN VERTICAL DISPLACEMENT ----
 % res.midspan = deflection at EXACTLY x = L/2 (cubic Hermite through nodes 8 and 9 for N = 16, see
-% midspan_deflection.m). Before 13 Nov 2026 the value of node 9 (x = 533 mm) was used; it is kept as
+% midspan_deflection.m). Earlier versions used the value of node 9 (x = 533 mm); it is kept as
 % res.midspan_node (column res.col of XX, position res.x_midspan_node).
 [midspan, midspan_node, mi] = midspan_deflection(XX, N, cfg.geom.L);
 col = mi.col;

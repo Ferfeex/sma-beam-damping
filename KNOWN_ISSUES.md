@@ -3,7 +3,7 @@
 Found while reading, porting and cleaning the code. "Status" says what was done about each one.
 Only #1 (the Newton loop condition) changes the numerical results, by < 1 %; everything else is documentation of problems in files that were archived or left as they were.
 
-## 1. `&&` slip in the Newton loop (`src/myfun.m`, `src/myfun_SE.m`) - FIXED (approved by the author)
+## 1. `&&` slip in the Newton loop (`src/myfun.m`, `src/myfun_SE.m`) - FIXED
 
 ```matlab
 while ~isempty(indp) && ~isempty(indm)      % 2020 original
@@ -59,7 +59,7 @@ The file as stored had a single amplitude `eps_upp = 0.025` (the polynomial fit 
 `eps_L = 0.0086 / -0.00746` (not the thesis Table 3.2 values 0.016 / -0.0146) and no `save`;
 `Loss/p.mat` was saved by hand from some earlier run.
 *Status:* the script now uses `eps_upp = 0.001:0.001:0.025` and `0.016 / -0.0146` (reconstructed from the
-thesis) and writes `results/p_regen.mat`. The author's **original `data/p.mat` is shipped and used as
+thesis) and writes `results/p_regen.mat`. The **original `data/p.mat` is shipped and used as
 default**. The regenerated curve matches it within 0.001-0.003 for strains >= 0.3 % but is lower at
 small strain (eta at 0.06 %: 0.119 versus 0.137 original; at 0.1 %: 0.131 versus 0.146), see
 `docs/loss_factor_fit.png`. The original run therefore used a slightly different amplitude set (unknown).
@@ -69,7 +69,7 @@ It builds the initial stiffness matrix but has no `save`; the `KFF.mat` in the o
 by hand, and differs ~12 % from what the script computes. The main path does not need `KFF.mat`
 (the solver builds the matrix), so the script was dropped (a copy is in `archive/loss_variants/xiT0nullo/`).
 
-## 9. The "mid-span" displacement was the deflection of node 9, not of x = L/2 - FIXED (approved by the author, 13 Nov 2026)
+## 9. The "mid-span" displacement was the deflection of node 9, not of x = L/2 - FIXED
 
 `FEM1D.m` read the mid-span displacement from `X(:,45)`, i.e. the deflection dof of node 9 (dof map of
 `build_beam.m`: node k has w = dof 2k-3, theta = dof 2k-2). With N = 16 nodes (15 elements) the middle of the

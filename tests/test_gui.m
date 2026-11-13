@@ -32,7 +32,7 @@ for k = 1:numel(S.C)
 end
 check('case selection toggles p fields / compare for linear cases', okall);
 set(H.list,'value',4); sma_gui('select',fig);
-check('pulse case: estimate shown, no "very slow" warning since the 2026 speed-up', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
+check('pulse case: estimate shown, no "very slow" warning with the fast code path', ~isempty(get(H.est,'string')) && isempty(strfind(strjoin(get(H.est,'string').',' '),'SLOW')));
 set(H.list,'value',5); sma_gui('select',fig);
 check('SE case: p_SE.mat loaded (4 coefficients, 5th field disabled)', strcmp(get(H.pe(5),'enable'),'off') && ~isempty(get(H.pe(4),'string')));
 set(H.list,'value',1); sma_gui('select',fig);

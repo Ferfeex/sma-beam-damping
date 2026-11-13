@@ -1,5 +1,5 @@
 function ok = run_tests(mode)
-% RUN_TESTS  checks that the cleaned-up code still gives the same numbers as the original.
+% RUN_TESTS  checks that this code still gives the same numbers as the original.
 %
 %   run_tests            quick tests (~3-6 min): short runs, compared with the ORIGINAL scripts
 %   run_tests('full')    + the full 0.8 s base case and composite case (~10 min), peaks vs thesis
@@ -20,7 +20,7 @@ nfail = 0;
         if cond, fprintf('PASS  %s   %s\n', name, detail); else, fprintf('FAIL  %s   %s\n', name, detail); nfail = nfail + 1; end
     end
 
-% 1. composite matrices vs the ones the author saved by hand in 2020
+% 1. composite matrices vs the ones saved by hand in 2020
 ref = load(fullfile(root,'tests','reference','Matrices_composite_original.mat'));
 cfg = case_composite(); hle = composite_matrices(cfg.hle);
 d = max([max(abs(hle.MFF_HLE(:)-ref.MFF_HLE(:))./max(abs(ref.MFF_HLE(:)))), ...
@@ -179,7 +179,7 @@ d = dir(f); b = d.bytes;
 end
 
 function [same,detail] = compare_runs(o,r,tol)
-if nargin < 3, tol = 1e-5; end   % relative to max|X|; round-off level (the fast path of 2026 sums in a different order, see PERF_NOTES.md)
+if nargin < 3, tol = 1e-5; end   % relative to max|X|; round-off level (the fast path sums in a different order, see PERF_NOTES.md)
 % o: original (TT,XX); r: refactored result
 if numel(o.TT) ~= numel(r.TT)
     same = false; detail = sprintf('different number of steps: original %d, new %d', numel(o.TT), numel(r.TT)); return

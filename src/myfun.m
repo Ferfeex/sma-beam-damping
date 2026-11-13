@@ -9,7 +9,7 @@ function status = myfun(T,X,flag,prm)
 %      the loss factor LF from the polynomial p and rebuilds the damping matrix CFF
 %      (C = (eta/omega) K), then returns status=1 so that the solver restarts.
 %
-% Refactor note (2026): the original had 36 positional arguments; they are now
+% Refactor note: the original had 36 positional arguments; they are now
 % fields of the struct prm and unpacked below with their ORIGINAL names.
 % The numerical core (everything between the markers) is unchanged.
 global KFF CFF tt yy xisp xism xiT xisp0 xism0 xiT0 indp_old indm_old sigma_old s p1 m1
@@ -98,7 +98,7 @@ if nargin < 3 || isempty(flag)
     % NOTE (see KNOWN_ISSUES.md #1): the 2020 original had
     %     while ~isempty(indp) && ~isempty(indm)
     % i.e. Newton ran only while BOTH a tension and a compression zone were active and stopped as soon
-    % as one of the two sets had converged. Corrected (2026, approved by the author) to ||: iterate while
+    % as one of the two sets had converged. Corrected to ||: iterate while
     % ANY point still has to converge. The cap prm.newton_maxit protects against a non-converging point.
     while (~isempty(indp) || ~isempty(indm)) && i < prm.newton_maxit
         % MARTENSITIC FRACTIONS
