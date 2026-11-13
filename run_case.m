@@ -23,13 +23,17 @@ function res = run_case(c, varargin)
 %     'save_mat'    true/false: save TT, XX, cfg to outdir (default true)
 %     'verbose'     true = original per-step printout
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
-%                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png)
+%                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png), and the martensite
+%                   fractions versus time and position along the beam (src/martensite_xt.m, <case>_martensite_xt.png)
 %     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
 %                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
 %                   Slow motion, 25 fps, deflection exaggerated; works for every case.
 %     'animate_compare' false (default) | true | 'gif' | 'both': the same for the SMA beam TOGETHER WITH the linear
 %                   reference beam (src/animate_compare.m): beams overlaid + both mid-span histories with moving
 %                   markers; GIF = <outdir>/<case>_animation_compare.gif. Runs the linear reference if needed.
+%     'animate_fields' false (default) | true | 'gif' | 'both': animation of the martensite fractions xi_s+, xi_s-, xi_T over
+%                   length x thickness while the beam rings down (src/animate_fields.m, ~100 snapshots recorded during
+%                   the solve); GIF = <outdir>/<case>_fields_animation.gif. 'fields_opts': extra options (cell).
 %     'animate_opts' cell of extra name/value options for animate_beam, e.g. {'speed',0.05,'strain',false}
 %
 %   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
@@ -41,7 +45,7 @@ if nargin == 0
     return
 end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'dashboard',true);
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'fields_opts',{{}},'dashboard',true);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
@@ -60,6 +64,10 @@ end
 if ~isempty(opt.Tf),        cfg.time.Tf = opt.Tf; end
 if ~isempty(opt.verbose),   cfg.numerics.verbose = opt.verbose; end
 if opt.plot_fields,         cfg.post.keep_fields = true; end
+want_fields_anim = ~isequal(opt.animate_fields,false) && ~isempty(opt.animate_fields);
+if (opt.plot_fields || want_fields_anim) && ~strcmp(cfg.model,'linear') && ~(isfield(cfg.post,'n_snapshots') && cfg.post.n_snapshots > 0)
+    cfg.post.n_snapshots = 100;                    % martensite fractions at ~100 times (src/sma_beam_solve.m): xt map, fields animation
+end
 
 if ~strcmp(cfg.model,'linear')
     pf = cfg.p_file;
@@ -143,6 +151,19 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
     end
     if ~show, close(f); else, drawnow; end
 end
+if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none')
+    % 3) martensite fractions versus time and position along the beam (thickness-averaged colour maps)
+    if show, f = figure; else, f = figure('visible','off'); end
+    set(f,'units','pixels','position',[100 80 700 760],'color','w','paperpositionmode','auto');
+    martensite_xt(res, cfg, f);
+    if dosave
+        if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+        fn = fullfile(opt.outdir, [cfg.name tag '_martensite_xt.png']);
+        print(f,'-dpng','-r110',fn);
+        fprintf('figure: %s\n', fn);
+    end
+    if ~show, close(f); else, drawnow; end
+end
 [am,doshow,dogif] = anim_mode_(opt.animate,'animate');
 if ~strcmp(am,'none')
     ao = {'show', doshow};
@@ -162,6 +183,20 @@ if ~strcmp(am,'none')
     end
     res.animation_compare = animate_compare(res, refc, cfg, refc.cfg, ao{:}, opt.animate_opts{:});
     fprintf('comparison animation done in %.1f s (%d frames)\n', res.animation_compare.runtime_s, res.animation_compare.nframes);
+end
+[am,doshow,dogif] = anim_mode_(opt.animate_fields,'animate_fields');
+if ~strcmp(am,'none')
+    if ~isfield(res,'snapshots')
+        fprintf('animate_fields: no martensite fractions in this model (linear beam) - skipped\n');
+    else
+        ao = {'show', doshow};
+        if dogif
+            if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
+            ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_fields_animation.gif'])}];
+        end
+        res.animation_fields = animate_fields(res, cfg, ao{:}, opt.fields_opts{:});
+        fprintf('fields animation done in %.1f s (%d frames)\n', res.animation_fields.runtime_s, res.animation_fields.nframes);
+    end
 end
 if opt.save_mat
     if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
