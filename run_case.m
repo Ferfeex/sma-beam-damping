@@ -38,6 +38,14 @@ function res = run_case(c, varargin)
 %                   length x thickness while the beam rings down (src/animate_fields.m, ~100 snapshots recorded during
 %                   the solve); GIF = <outdir>/<case>_fields_animation.gif. 'fields_opts': extra options (cell).
 %     'animate_opts' cell of extra name/value options for animate_beam, e.g. {'speed',0.05,'strain',false}
+%     'anim_speed'  playback speed of the animations, simulated seconds per real second (1 = real time, 0.1 = 10x slow
+%                   motion; default 0.1): the start value of the speed control of the on-screen animations (adjustable
+%                   between 0.02 and 1 while they play) and the speed of the GIF files. Default = unchanged GIF speed.
+%     'anim_block'  true (default) | false. On-screen animations ('animate*' = true or 'both') are tabs of the results
+%                   window (Beam animation, SMA vs linear animation, Martensite animation) and loop until that window
+%                   is closed or Stop is pressed; run_case returns then (GNU Octave has no timer, so the playback loop
+%                   runs inside run_case, as its last step, after all files are written). false = open the window with
+%                   the animations paused and return at once; Play in the window starts the loop.
 %
 %   Returns res with fields TT, XX, midspan (deflection at x = L/2, Hermite-interpolated), midspan_node
 %   (old value: node 9, x = res.x_midspan_node), runtime_s, cfg, peaks (time, height of midspan).
@@ -48,10 +56,13 @@ if nargin == 0
     return
 end
 opt = struct('Tf',[],'compare_hle',false,'figures','save','outdir','', ...
-    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'fields_opts',{{}},'dashboard',true);
+    'save_mat',true,'verbose',[],'plot_fields',false,'p',[],'animate',false,'animate_opts',{{}},'animate_compare',false,'animate_fields',false,'fields_opts',{{}},'dashboard',true,'anim_speed',[],'anim_block',true);
 for k = 1:2:numel(varargin)
     if ~isfield(opt,varargin{k}), error('run_case: unknown option "%s"', varargin{k}); end
     opt.(varargin{k}) = varargin{k+1};
+end
+if ~isempty(opt.anim_speed) && ~(isnumeric(opt.anim_speed) && isscalar(opt.anim_speed) && opt.anim_speed > 0)
+    error('run_case: option ''anim_speed'' must be a positive number (simulated seconds per real second, e.g. 0.1)');
 end
 root = fileparts(mfilename('fullpath'));
 if isempty(opt.outdir), opt.outdir = fullfile(root,'results'); end
@@ -140,7 +151,7 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
     if ~exist(opt.outdir,'dir') && dosave, mkdir(opt.outdir); end
     % 1) martensite fractions over the beam at the last time step (thesis 'Simulazione_lunga')
     if vis_sep, f = figure; else, f = figure('visible','off'); end
-    meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L,f);
+    meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L,f,struct('ylabel',sma_section_label(cfg,'axis'),'suffix',sma_section_label(cfg,'suffix')));
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_fields.png']);
         print(f,'-dpng','-r110',fn);
@@ -149,7 +160,7 @@ if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && 
     if ~vis_sep, close(f); else, drawnow; end
     % 2) thesis-style deformed beam + strain map at the last time step
     if vis_sep, f = figure; else, f = figure('visible','off'); end
-    strain_figure(ff.epsyylon,res.XX,cfg.geom.N,cfg.geom.L,cfg.geom.thick,res.TT(end),f);
+    strain_figure(ff.epsyylon,res.XX,cfg.geom.N,cfg.geom.L,cfg.geom.thick,res.TT(end),f,struct('ylabel',sma_section_label(cfg,'thickness'),'suffix',sma_section_label(cfg,'suffix')));
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_strain.png']);
         print(f,'-dpng','-r110',fn);
@@ -170,41 +181,58 @@ if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none') &&
     end
     if ~vis_sep, close(f); else, drawnow; end
 end
-if use_dash
+[am_b,show_b,gif_b] = anim_mode_(opt.animate,'animate');
+[am_c,show_c,gif_c] = anim_mode_(opt.animate_compare,'animate_compare');
+[am_f,show_f,gif_f] = anim_mode_(opt.animate_fields,'animate_fields');
+if show_f && ~isfield(res,'snapshots'), show_f = false; end          % linear beam: no martensite (message below)
+sp_screen = anim_start_speed_(opt);                                    % start speed of the on-screen animations
+% on-screen animations are tabs of the dashboard (one window); without uipanel support they open their own windows
+dash_anim = opt.dashboard && dashboard_supported() && (show_b || show_c || show_f);
+res.dashboard = [];
+if use_dash || dash_anim
     try
-        res.dashboard = dashboard(res, cfg, ref, 'title', [cfg.name tag]);
+        A = struct('beam',show_b,'compare',show_c,'fields',show_f,'refc',refc,'speed',sp_screen, ...
+            'beam_opts',{anim_opts_(opt.animate_opts)},'fields_opts',{anim_opts_(opt.fields_opts)},'autoplay',opt.anim_block);
+        res.dashboard = dashboard(res, cfg, ref, 'title', [cfg.name tag], 'plots', use_dash, 'anim', A);
         drawnow;
     catch err
         warning('run_case: the dashboard window could not be created (%s); use ''dashboard'',false for separate windows', err.message);
+        dash_anim = false;  res.dashboard = [];
     end
 end
-[am,doshow,dogif] = anim_mode_(opt.animate,'animate');
-if ~strcmp(am,'none')
-    ao = {'show', doshow};
-    if dogif
+if isempty(res.dashboard), res = rmfield(res,'dashboard'); end
+if isfield(res,'dashboard') && dash_anim
+    show_b = false;  show_c = false;  show_f = false;                   % already in the dashboard: nothing else is opened
+end
+gs = {};  if ~isempty(opt.anim_speed), gs = {'speed',opt.anim_speed}; end    % GIF speed
+if ~strcmp(am_b,'none')
+    ao = [{'show', show_b}, gs];
+    if gif_b
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation.gif'])}];
     end
-    res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
-    fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+    if gif_b || show_b
+        res.animation = animate_beam(res, cfg, ao{:}, opt.animate_opts{:});
+        fprintf('animation done in %.1f s (%d frames)\n', res.animation.runtime_s, res.animation.nframes);
+    end
 end
-[am,doshow,dogif] = anim_mode_(opt.animate_compare,'animate_compare');
-if ~strcmp(am,'none')
-    ao = {'show', doshow};
-    if dogif
+if ~strcmp(am_c,'none')
+    ao = [{'show', show_c}, gs];
+    if gif_c
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_animation_compare.gif'])}];
     end
-    res.animation_compare = animate_compare(res, refc, cfg, refc.cfg, ao{:}, opt.animate_opts{:});
-    fprintf('comparison animation done in %.1f s (%d frames)\n', res.animation_compare.runtime_s, res.animation_compare.nframes);
+    if gif_c || show_c
+        res.animation_compare = animate_compare(res, refc, cfg, refc.cfg, ao{:}, opt.animate_opts{:});
+        fprintf('comparison animation done in %.1f s (%d frames)\n', res.animation_compare.runtime_s, res.animation_compare.nframes);
+    end
 end
-[am,doshow,dogif] = anim_mode_(opt.animate_fields,'animate_fields');
-if ~strcmp(am,'none')
+if ~strcmp(am_f,'none')
     if ~isfield(res,'snapshots')
         fprintf('animate_fields: no martensite fractions in this model (linear beam) - skipped\n');
-    else
-        ao = {'show', doshow};
-        if dogif
+    elseif gif_f || show_f
+        ao = [{'show', show_f}, gs];
+        if gif_f
             if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
             ao = [ao {'gif', fullfile(opt.outdir,[cfg.name tag '_fields_animation.gif'])}];
         end
@@ -217,6 +245,30 @@ if opt.save_mat
     TT = res.TT; XX = res.XX; midspan = res.midspan; midspan_node = res.midspan_node; x_midspan_node = res.x_midspan_node; peaks = res.peaks; %#ok<NASGU>
     save('-v7', fullfile(opt.outdir,[cfg.name tag '_result.mat']), 'TT','XX','midspan','midspan_node','x_midspan_node','peaks','cfg');
 end
+% on-screen animations: loop until the window is closed or Stop is pressed (everything is saved at this point)
+if dash_anim && isfield(res,'dashboard') && ishandle(res.dashboard) && opt.anim_block
+    fprintf('animations are playing in the results window - close it or press Stop to continue\n');
+    dashboard_play(res.dashboard);
+end
+end
+
+function sp = anim_start_speed_(opt)
+% start speed of the on-screen animations: 'anim_speed', else a numeric 'speed' in animate_opts, else 0.1
+sp = 0.1;
+if ~isempty(opt.anim_speed), sp = opt.anim_speed; return; end
+c = opt.animate_opts;
+for k = 1:2:numel(c)-1
+    if ischar(c{k}) && strcmp(c{k},'speed') && isnumeric(c{k+1}) && isscalar(c{k+1}), sp = c{k+1}; end
+end
+end
+
+function c = anim_opts_(c)
+% extra options handed to the dashboard animation tabs: drop what only applies to files / own windows
+keep = true(size(c));
+for k = 1:2:numel(c)-1
+    if ischar(c{k}) && any(strcmp(c{k},{'gif','show','parent','still','speed'})), keep(k:k+1) = false; end
+end
+c = c(keep);
 end
 
 function [mode,doshow,dogif] = anim_mode_(v,name)

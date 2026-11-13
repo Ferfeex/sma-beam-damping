@@ -60,7 +60,8 @@ be diffed. Only `.m` sources were archived.
 | globals (`p1`, `m1`, `tt`, `yy`, ...) are reset at the start of every solve | the original relied on `clear all` at the top of the script | fixes re-runs in the same session |
 | restart-loop safety cap (`max_restarts`); progress printed every 0.05 s of simulated time | avoid endless loops and 4800-line logs | none |
 | `Tension_compression_parametric.m`: `eps_upp = 0.001:0.001:0.025`, `eps_L = 0.016/-0.0146`, saves `results/p_regen.mat`, never overwrites `data/p.mat` | the stored version could not produce `p.mat` | affects only the regenerated `p` |
-| `meshare.m`: section thickness and length are arguments; the title shows the real time | the 30 x 20 mm section and `t = 0.8` were hard-coded | plotting only |
+| `meshare.m`: section thickness and length are arguments; the title shows the real time; the h axis is limited to +-thickness/2 and labelled "SMA core" for the sandwich beam | the 30 x 20 mm section and `t = 0.8` were hard-coded; the martensite fields exist only over the SMA section | plotting only |
+| animations are tabs of the results window and loop on screen (`src/dashboard_play.m`) | no extra windows; speed control | plotting only |
 | Newton loop condition `&&` -> `||` (`prm.newton_maxit = 100` caps the loop) | see KNOWN_ISSUES #1 | peaks change by <= 0.006 mm, curve by <= 0.8 % |
 | `smooth2a.m` -> `smooth_mean2d.m` (conv2 moving average) | third-party code without licence | identical to 4e-16 (plot only) |
 | mid-span read-out at exactly x = L/2 (cubic Hermite from nodes 8 and 9) instead of node 9 (x = 533 mm) | N = 16 has no node at L/2; see KNOWN_ISSUES #9 | `res.midspan` is 0.56 % larger for mode 1; the node value is kept as `res.midspan_node` |

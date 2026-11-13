@@ -65,9 +65,10 @@ run_case             % opens the start window: choose the case, change p, tick t
   The fields are disabled for the linear cases (no loss factor there).
 * **Final time Tf** (blank = the case default), **Compare with linear beam** (overlays the linear
   reference), **Plot fields** (strain / martensite fraction over the beam, and martensite versus time),
-  **Animate** (beam / SMA vs linear / martensite) with **Save GIF**, **One window (tabs)** (the result plots in a
-  single dashboard window; untick for separate windows) and **Figures** (show and save PNG / show only /
-  save only / none).
+  **Animate** (beam / SMA vs linear / martensite; each becomes a tab of the results window) with **Save GIF**,
+  **One window (tabs)** (the result plots in a single dashboard window; untick for separate windows), the
+  **Animation speed** (1 = real time, 0.1 = 10x slow motion; start value of the on-screen animations and speed of
+  the GIF files, 0.02 - 1) and **Figures** (show and save PNG / show only / save only / none).
 * **Run** starts the simulation (the command window shows the progress); afterwards the results window
   (dashboard, see below) opens, and the status line lists the first ring-down peaks. Inputs are checked
   (numbers, Tf > 0) with a message that says what is wrong. Without a display (e.g. over ssh) a
@@ -152,7 +153,8 @@ After a run the beam vibration can be played, or written to an animated GIF:
 
 ```octave
 run_case('base','animate','gif')        % results/base_animation.gif (no window)
-run_case('base','animate',true)         % play in a window
+run_case('base','animate',true)         % loops in a tab of the results window until it is closed or Stop is pressed
+run_case('base','animate',true,'anim_speed',0.05)   % start speed 0.05x real time (also the GIF speed with 'gif' / 'both')
 run_case('base','animate','both','animate_opts',{'speed',0.05,'exaggeration',50})
 ```
 
@@ -211,11 +213,31 @@ run_case('base','figures','show','dashboard',false)   % the old separate windows
 
 * **Dashboard** (`src/dashboard.m`). With `'figures'` = `'show'` or `'both'` (and in the start window) the plots are collected in
   one window with a row of tab buttons: Deflection, SMA vs linear (with `compare_hle`), Strain and Martensite (final) (with `plot_fields`,
-  two-phase models), Martensite (t, x). The PNG files are written exactly as before. GNU Octave 10.3 has no `uitabgroup`, so the tabs are
+  two-phase models), Martensite (t, x), and, for the animations that are switched on, Beam animation, SMA vs linear animation and
+  Martensite animation (a second row of tabs). The PNG files are written exactly as before. GNU Octave 10.3 has no `uitabgroup`, so the tabs are
   toggle buttons that switch `uipanel`s, which works in the Octave Qt toolkit and in MATLAB; with the gnuplot / FLTK toolkits `run_case`
-  falls back to separate windows (`'dashboard',false` forces them). Animations open in their own windows.
+  falls back to separate windows (`'dashboard',false` forces them; the animations then play once in their own windows).
+  No other figure window is opened while the dashboard is on.
 
 ![Dashboard](docs/dashboard_screenshot.png)
+
+* **On-screen animations loop** (`src/dashboard_play.m`). The animation tabs play continuously and wrap around at the end, until
+  the window is closed or **Stop** is pressed. Only the visible tab is advanced; the hidden tabs wait. Each tab has a control strip:
+  **Play / Pause** (this tab only), **-** / **+** (speed x 1/1.5 and x 1.5), a **speed slider** (logarithmic) and **Stop**. The
+  speed is in simulated seconds per real second, from 0.02 (50x slow motion) to 1 (real time); the start value is `'anim_speed'`
+  (default 0.1). GNU Octave has no timer object, so the loop runs inside `run_case`: **`run_case` returns when the window is
+  closed or Stop is pressed**, as its last step, when all files are already written (the start window is busy until then; its status
+  line says so). After Stop the window stays open and Play in a tab starts the loop again. `'anim_block',false` opens the window with the
+  animations paused and returns at once; Play then starts the loop from the button. The GIF files are not affected by the loop: they are written
+  from hidden figures with the speed `'anim_speed'` (default as before).
+
+```octave
+res = run_case('composite','plot_fields',true,'figures','show','animate',true,'animate_compare',true,'animate_fields',true,'anim_speed',0.1);
+```
+
+* **Composite beam.** The martensite fractions and the strain maps exist only in the SMA core (`cfg.geom.thick` = 10 mm, h = +-5 mm);
+  the GFRP skins around it (12 mm in all) are linear elastic and carry no martensite. For the sandwich beam the axis labels and titles of these plots say
+  "SMA core, h = +-5 mm", and the h axis of every martensite / strain map is limited to +-thick/2 (`src/sma_section_label.m`).
 
 ![Loss factor fit](docs/loss_factor_fit.png)
 
@@ -240,6 +262,8 @@ src/                    the solver
   meshare.m             field plots (optional)
   animate_beam.m, animate_compare.m, animate_fields.m   animations (+ gif_write.m, gif_ensure_loop.m ... GIF helpers)
   martensite_xt.m, dashboard.m   martensite versus time and position; the tabbed results window
+  dashboard_play.m, dashboard_ctrl.m, dashboard_select.m   playback loop, control strip callbacks and tab switching of the dashboard
+  sma_section_label.m   'SMA core, h = +-5 mm' labels for the martensite / strain plots
   smooth_mean2d.m       moving-average smoothing used by meshare.m
   case_catalog.m        list of cases with descriptions, runtime estimates, p file (feeds the window)
 brinson/                material level (thesis chapter 2): Brinson model, phase diagram, super-elasticity,
@@ -283,10 +307,10 @@ cd tests; run_tests            % quick (~2.5 min): short runs of every case equa
 run_tests('full')              % + the full base and composite runs, peaks versus the thesis
 ```
 
-`run_tests` also covers the looping GIFs, the martensite snapshots, the xt map, the fields and comparison animations and the dashboard.
+`run_tests` also covers the looping GIFs, the martensite snapshots, the xt map, the fields and comparison animations, the dashboard, the animation tabs (loop, speed controls, pause / stop / closing the window during playback) and the SMA-core labels of the composite case.
 
 The start window has its own automatic test (it opens the window, sets values programmatically and
-presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --no-gui --eval "cd tests; test_gui"`).
+presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --no-gui --eval "cd tests; test_gui"`). Called as `test_gui('<folder>')` under an X server with `xdotool` it also operates the controls of a running animation with real mouse clicks (speed, pause, tab switch, Stop, Play) and writes screenshots.
 
 ## Known limitations
 
