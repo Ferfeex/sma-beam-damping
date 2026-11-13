@@ -2,11 +2,10 @@ function cfg = case_pulse()
 % FORCED CASE  Rectangular force pulse on the SMA beam (thesis 3.3.2, Fig. 3.23).
 %   Beam 30 x 20 mm. 200 N in total (2 x 100 N on the two mid-span elements), ramp 0 -> F in
 %   1e-4 s, held until t = 0.02 s, then released; starts at rest. f_ref = 18 Hz, loss factor at 0.001.
-%   Original: Loss/Transient/FEM1D.m (+ its own myfun.m / fun_ode_1D.m).
-%   SLOW: 0.16 s of the 0.8 s took ~33 min in Octave (see README: runtimes).
+%   The longest of the cases (about 2 minutes in Octave, 64000 solver steps).
 cfg = default_config();
 cfg.name = 'pulse';
-cfg.description = 'Rectangular force pulse 200 N / 0.02 s on the 30x20 mm SMA beam (Loss/Transient)';
+cfg.description = 'Rectangular force pulse 200 N / 0.02 s on the 30x20 mm SMA beam';
 cfg.geom.b = 30;  cfg.geom.thick = 20;
 cfg.damping.f_ref = 18;
 cfg.damping.x_ref = 0.001;

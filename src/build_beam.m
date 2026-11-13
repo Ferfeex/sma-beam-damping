@@ -2,8 +2,6 @@ function bm = build_beam(cfg, E_K)
 % BUILD_BEAM  Euler-Bernoulli beam, simply supported, N nodes (N-1 elements).
 %   Mass matrix, linear stiffness (modulus E_K), extraction matrices, and the
 %   constant B and BB.. matrices used by the nonlinear stiffness integration.
-%   This is the geometry/FEM block that was copy-pasted at the top of every
-%   FEM1D.m in the original code (variable names unchanged).
 N = cfg.geom.N;
 L = cfg.geom.L;          % Length [mm]
 b = cfg.geom.b;          % Width [mm]

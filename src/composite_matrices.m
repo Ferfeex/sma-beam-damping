@@ -1,7 +1,6 @@
 function hle = composite_matrices(h)
 % COMPOSITE_MATRICES  mass, stiffness and damping matrices of the non-SMA part (GFRP skins)
-%   of the GFRP/SMA/GFRP sandwich beam (thesis chapter 4, formerly Loss/Composite/Composite_matrices.m,
-%   which saved them by hand to Matrices.mat).
+%   of the GFRP/SMA/GFRP sandwich beam (thesis chapter 4).
 %
 %   h fields (defaults of the thesis in cases/case_composite.m):
 %     N, L, b, rho (GFRP), E (GFRP), thick (total sandwich thickness),
@@ -9,10 +8,10 @@ function hle = composite_matrices(h)
 %     zeta  (Rayleigh damping ratio imposed on modes 1 and 2).
 %   The skins are "total beam minus the SMA-thickness slab"; the SMA slab itself is
 %   simulated by the nonlinear solver, the Rayleigh coefficients are computed on the
-%   whole sandwich (GFRP skins + SMA core), exactly as in the original script.
+%   whole sandwich (GFRP skins + SMA core).
 N = h.N;
 b = h.b;
-Lk = h.L/(N-1);                      % original: Lk = 1000/15
+Lk = h.L/(N-1);
 
 [Mk1,Kk1] = element_matrices(h.rho,  b*h.thick,  h.E,  1/12*b*h.thick^3,  Lk);   % GFRP, full thickness
 [Mk2,Kk2] = element_matrices(h.rho,  b*h.thick2, h.E,  1/12*b*h.thick2^3, Lk);   % GFRP, thickness of the SMA core
