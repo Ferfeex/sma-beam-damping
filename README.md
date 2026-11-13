@@ -37,7 +37,7 @@ energy in the martensite re-orientation.*
 
   C = (eta / omega) K,   omega = 2 pi f_ref
 
-  and the beam equations M a + C v + K u = F are integrated in time (`ode23t`).
+  and the beam equations M a + C v + K u = F are integrated in time (`ode23t`; `ode23s` in Octave).
 * **Cases.** Free vibration of the SMA beam (the base case), the same compared with a linear
   reference, a **GFRP / SMA / GFRP sandwich** beam, a forced pulse, and a pre-stressed super-elastic
   beam. Each case is a small parameter file in `cases/`.
@@ -55,8 +55,8 @@ run_case             % opens the start window: choose the case, change p, tick t
 ![Start window](docs/gui_screenshot.png)
 
 * **Case list** with a description and the estimated runtime of each case. A case whose estimate
-  exceeds ~20 min would be flagged in red and ask for confirmation before it starts (none at the moment, thanks to the
-  fast code path; with a long `Tf` the estimate scales and the warning can still appear).
+  exceeds ~20 min is flagged in red and asks for confirmation before it starts (none of the default cases does;
+  with a long `Tf` the estimate scales and the warning can appear).
 * **Loss-factor coefficients p1..p5** (eta = p1 x^4 + ... + p5, x = strain as a fraction, 0.01 = 1 %), pre-filled from the
   case's own file (`data/p.mat`, or `data/p_SE.mat` for the super-elastic case). Edit any of them and the
   small plot shows the default curve (dashed) against yours (red); **Reset to default** brings them back.
@@ -74,7 +74,7 @@ run_case             % opens the start window: choose the case, change p, tick t
   (numbers, Tf > 0) with a message that says what is wrong. Without a display (e.g. over ssh) a
   text menu is shown instead.
 
-The scripting interface is unchanged and handy for batch jobs:
+The scripting interface is handy for batch jobs:
 
 ```octave
 run_case('base')                    % ~10 s: free vibration, prints the ring-down peaks, saves a figure
@@ -97,22 +97,19 @@ visually the same as in MATLAB but not bit-identical.
 
 | `run_case(...)` | What | Runtime in Octave (1 core) |
 |---|---|---|
-| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~10 s (9 s measured, 5100 steps; 433 s without the fast code path) |
+| `'base'` | Free vibration, SMA beam 15 x 10 mm, ferro-elastic (below Mf), loss-factor damping | ~10 s (9 s measured, 5100 steps) |
 | `'hle_linear'` | Linear reference beam, E = 26 GPa, Rayleigh 1.3 % | 2 s |
-| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~2 s (1.5 s measured; 53 s without the fast code path) |
+| `'composite'` | GFRP / SMA / GFRP sandwich, free vibration | ~2 s (1.5 s measured) |
 | `'linear_pulse_incremental'`, `'linear_pulse_rectangular'` | Linear GFRP beam under a ramp / rectangular load pulse | 17 s |
-| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | ~2 min (112 s measured, 64000 steps; hours without the fast code path) |
-| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | ~45 s (41 s measured, 20800 steps; hours without the fast code path) |
+| `'pulse'` | Rectangular 200 N / 0.02 s pulse on the 30 x 20 mm SMA beam | ~2 min (112 s measured, 64000 steps) |
+| `'prestrain_se'` | Super-elastic beam with 60 MPa pre-stress | ~45 s (41 s measured, 20800 steps) |
 
-Timings: GNU Octave 10.3 on a Linux box, 1 core; a laptop will differ. The fast code path
-(`PERF_NOTES.md`: vectorised assembly, analytic Jacobian, no per-step history; same solver, same
-tolerances, same physics) made `pulse` and `prestrain_se` practical. The shortened runs equal the
-original scripts to a relative 1e-5 (`tests/run_tests.m`). **Results match to rounding level**: same step
-counts and peaks to 1e-9 in the short runs, and at most **0.15 %** peak difference in the full base
-run (a single restart can flip with round-off). The super-elastic case is more sensitive: its late
-peaks (after ~0.3 s) move by a few percent under any round-off-level perturbation or change of
-`RelTol`/`AbsTol`, see `PERF_NOTES.md`. The full-length old-code runs of `pulse` and `prestrain_se`
-were not completed (too slow), so those two were compared with the old code only on shortened runs.
+Timings: GNU Octave 10.3 on a Linux box, 1 core; a laptop will differ.
+
+*Performance.* The element integration and assembly are vectorised, the constant inverse mass matrix is
+precomputed and the solver gets the analytic Jacobian `[-M^-1 C, -M^-1 K; I, 0]`; no per-step history is stored
+unless the field plots ask for it. The time-stepping is adaptive and the stress reversals are detected on the
+solver's step grid, so late peaks depend slightly on the ODE tolerances and on round-off (see the limitations below).
 
 ### Expected output of the base case
 
@@ -127,16 +124,12 @@ starting at the first maximum):
 (The ratio of successive peaks, ~0.76, is what the loss factor controls; peaks 2-6 are the
 values of thesis Fig. 4.3: about 5.5, 4.15, 3.1, 2.2, 1.6 mm.)
 
-*Which point is "mid-span"?* With N = 16 nodes (15 elements) there is no node at x = L/2: the nodes 8 and 9 sit at
-x = 467 and 533 mm. Earlier versions reported the deflection of node 9 (x = 533 mm). `res.midspan`
-is the deflection at exactly x = 500 mm, obtained with the cubic Hermite shape functions of the beam element from
-w and theta of nodes 8 and 9 (`src/midspan_deflection.m`); for mode 1 it is 0.56 % larger. The old node value is
-kept as `res.midspan_node` (position `res.x_midspan_node` = 533 mm, column `res.col` of `res.XX`). The node-9 peaks
-were 7.09, 5.49, 4.15, 3.07, 2.24, 1.61 mm. (The force of the `pulse` cases is still applied symmetrically around node 9,
-see `KNOWN_ISSUES.md` #9.)
+*Which point is "mid-span"?* With N = 16 nodes (15 elements) there is no node at x = L/2: nodes 8 and 9 sit at
+x = 467 and 533 mm. `res.midspan` is the deflection at exactly x = 500 mm, obtained with the cubic Hermite shape
+functions of the beam element from w and theta of nodes 8 and 9 (`src/midspan_deflection.m`).
 
 The sandwich beam (`run_case('composite')`, GFRP skins around the SMA core) rings down more slowly
-than the pure SMA beam (the SMA is only part of the structure): peaks 7.09, 6.28, 5.53, 4.84, 4.21, 3.65 mm (node-9 values: 7.05, 6.25, 5.50, 4.81, 4.19, 3.63)
+than the pure SMA beam (the SMA is only part of the structure): peaks 7.09, 6.28, 5.53, 4.84, 4.21, 3.65 mm
 (`docs/composite_midspan.png`).
 
 The fields at the last time step can be plotted with
@@ -181,7 +174,7 @@ run_case('base','animate_compare','gif')              % results/base_animation_c
 run_case('base','animate_fields','gif')               % results/base_fields_animation.gif: martensite fractions over time
 run_case('base','plot_fields',true)                   % + results/base_martensite_xt.png (martensite versus time and position)
 run_case('base','compare_hle',true,'plot_fields',true,'figures','both')   % one dashboard window with tabs, PNGs saved too
-run_case('base','figures','show','dashboard',false)   % the old separate windows
+run_case('base','figures','show','dashboard',false)   % separate windows instead of the dashboard
 ```
 
 * **GIFs loop forever.** Every GIF written by the code (`src/gif_write.m`) carries the NETSCAPE loop block; if the image
@@ -197,8 +190,7 @@ run_case('base','figures','show','dashboard',false)   % the old separate windows
 
 * **Martensite evolution.** The martensite fractions depend on the load history (hysteresis), so they cannot be rebuilt from
   the displacements afterwards; `sma_beam_solve` therefore copies xi_s+, xi_s-, xi_T at ~100 evenly spaced times while it
-  solves (`cfg.post.n_snapshots`, `res.snapshots`; 750 x 3 numbers each, no measurable cost, the solution is bit-identical,
-  and the `cfg.perf` flags still work). `plot_fields` and `animate_fields` switch it on. It works for the base and the composite
+  solves (`cfg.post.n_snapshots`, `res.snapshots`; 750 x 3 numbers each, no measurable cost, the solution is not affected). `plot_fields` and `animate_fields` switch it on. It works for the base and the composite
   case; the super-elastic pre-strain case has one fraction (xi_s+).
   * `'plot_fields',true` also saves `results/<case>_martensite_xt.png` (`src/martensite_xt.m`): one colour map per fraction,
     position along the beam horizontally, time vertically, averaged over the section thickness (`martensite_xt(res,cfg,fig,'fibre','top')`
@@ -214,7 +206,7 @@ run_case('base','figures','show','dashboard',false)   % the old separate windows
 * **Dashboard** (`src/dashboard.m`). With `'figures'` = `'show'` or `'both'` (and in the start window) the plots are collected in
   one window with a row of tab buttons: Deflection, SMA vs linear (with `compare_hle`), Strain and Martensite (final) (with `plot_fields`,
   two-phase models), Martensite (t, x), and, for the animations that are switched on, Beam animation, SMA vs linear animation and
-  Martensite animation (a second row of tabs). The PNG files are written exactly as before. GNU Octave 10.3 has no `uitabgroup`, so the tabs are
+  Martensite animation (a second row of tabs). The PNG files are written as usual. GNU Octave 10.3 has no `uitabgroup`, so the tabs are
   toggle buttons that switch `uipanel`s, which works in the Octave Qt toolkit and in MATLAB; with the gnuplot / FLTK toolkits `run_case`
   falls back to separate windows (`'dashboard',false` forces them; the animations then play once in their own windows).
   No other figure window is opened while the dashboard is on.
@@ -229,7 +221,7 @@ run_case('base','figures','show','dashboard',false)   % the old separate windows
   closed or Stop is pressed**, as its last step, when all files are already written (the start window is busy until then; its status
   line says so). After Stop the window stays open and Play in a tab starts the loop again. `'anim_block',false` opens the window with the
   animations paused and returns at once; Play then starts the loop from the button. The GIF files are not affected by the loop: they are written
-  from hidden figures with the speed `'anim_speed'` (default as before).
+  from hidden figures with the speed `'anim_speed'`.
 
 ```octave
 res = run_case('composite','plot_fields',true,'figures','show','animate',true,'animate_compare',true,'animate_fields',true,'anim_speed',0.1);
@@ -251,13 +243,13 @@ sma_gui.m               the start window (uicontrol only; Octave Qt and MATLAB) 
 setup_paths.m           adds the folders to the path (called by run_case)
 cases/                  one parameter file per case (case_base.m ...) + default_config.m listing EVERY parameter
 src/                    the solver
-  sma_beam_solve.m      nonlinear (loss-factor) beam solver   [was Loss/FEM1D.m and its 5 copies]
+  sma_beam_solve.m      nonlinear (loss-factor) beam solver
   myfun.m               OutputFcn: strain -> Newton on stress/martensite -> tangent K -> damping C
   myfun_SE.m            the same for the super-elastic, pre-stressed case
   build_beam.m          FEM matrices (mass, stiffness, extraction, B matrices)
-  fun_ode_1D.m          right-hand side of the ODE
+  ode_rhs.m, ode_jacobian.m   right-hand side of the ODE and its analytic Jacobian
   linear_beam_solve.m   linear beam with Rayleigh damping (reference and linear pulses)
-  composite_matrices.m  matrices of the GFRP skins (was Composite_matrices.m + hand-saved Matrices.mat)
+  composite_matrices.m  matrices of the GFRP skins
   initial_velocity.m    initial half-sine velocity field
   meshare.m             field plots (optional)
   animate_beam.m, animate_compare.m, animate_fields.m   animations (+ gif_write.m, gif_ensure_loop.m ... GIF helpers)
@@ -268,15 +260,12 @@ src/                    the solver
   case_catalog.m        list of cases with descriptions, runtime estimates, p file (feeds the window)
 brinson/                material level (thesis chapter 2): Brinson model, phase diagram, super-elasticity,
                         Tension_compression_parametric.m (the loss-factor fit), Brinson_validation.m ...
-data/                   p.mat (loss-factor polynomial, original), p_SE.mat (super-elastic one)
+data/                   p.mat (loss-factor polynomial), p_SE.mat (super-elastic one)
 compat/octave/          ode23t stand-in for Octave
-tests/                  run_tests.m: refactored code vs the original 2020 scripts; test_gui.m: the start window
+tests/                  run_tests.m: regression and feature tests; reference/: stored reference values; test_gui.m: the start window
 tools/                  make_loss_factor_figure.m
 LICENSE                 MIT
-docs/                   figures; CODE_MAP_original_analysis.md = the map of the original code
-archive/                older attempts (not maintained), see archive/README.md
-CHANGES.md              what differs from the original thesis code (kept / moved / removed / changed) and the verification
-KNOWN_ISSUES.md         bugs and oddities of the original code
+docs/                   figures
 ```
 
 ## Using your own parameters
@@ -296,34 +285,59 @@ A force pulse: `cfg = case_pulse(); cfg.load.F_element = -50;` (nodal force per 
 
 To regenerate the loss-factor curve instead of using the shipped one:
 `run('brinson/Tension_compression_parametric.m')` writes `results/p_regen.mat`, then
-`cfg.p_file = fullfile('results','p_regen.mat')`. This is an alternative only: the default stays the original
+`cfg.p_file = fullfile('results','p_regen.mat')`. This is an alternative only: the default stays the shipped
 `data/p.mat`, which matches the thesis best (the regenerated curve is lower at small strain, see
-`CHANGES.md` and `docs/loss_factor_fit.png`).
+`docs/loss_factor_fit.png`).
 
 ## Tests
 
 ```octave
-cd tests; run_tests            % quick (~2.5 min): short runs of every case equal to the original scripts within a relative 1e-5 (round-off)
+cd tests; run_tests            % quick (~4 min): short runs of every case against the stored reference values
 run_tests('full')              % + the full base and composite runs, peaks versus the thesis
 ```
+
+`tests/reference/reference_runs.m` holds the mid-span deflection of short runs of the base, composite, pulse and pre-strain cases on a fixed time grid, and the norms of the composite skin matrices; the tests require agreement to a relative 1e-4 (1e-9 for the matrices). The full run compares the ring-down peaks with the thesis values.
 
 `run_tests` also covers the looping GIFs, the martensite snapshots, the xt map, the fields and comparison animations, the dashboard, the animation tabs (loop, speed controls, pause / stop / closing the window during playback) and the SMA-core labels of the composite case.
 
 The start window has its own automatic test (it opens the window, sets values programmatically and
 presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --no-gui --eval "cd tests; test_gui"`). Called as `test_gui('<folder>')` under an X server with `xdotool` it also operates the controls of a running animation with real mouse clicks (speed, pause, tab switch, Stop, Play) and writes screenshots.
 
-## Known limitations
+## Limitations and real-world use
 
-* Only the thesis geometry (N = 16 nodes) is verified. Other `N` should work in principle but are untested.
-* The model is **one-dimensional** in the material (Brinson): good for beams loaded along their axis;
-  not a 3D constitutive law.
-* The results depend on the ODE tolerance (the ring-down of the base case is ~2 % higher with `RelTol` 1e-5 than with the default 1e-3; the super-elastic case is more sensitive), because stress reversals are detected on the solver's step grid. See `PERF_NOTES.md`.
-* The start window is busy while a simulation runs (progress is printed in the command window; Ctrl+C
-  stops a run). It is built from plain `uicontrol`s, so its look varies a little between Octave on
-  Windows/Linux and MATLAB; tested headless under GNU Octave 10.3 (Qt) on Linux only.
-* The `ode23t` stand-in is not the same integrator as MATLAB's, so the numbers differ slightly from
-  a MATLAB run (a MATLAB run of the original code was not available).
-* The force term of the linear transient case was lost in the original files and is inferred.
+**Ferroelastic case (below As).** The martensite that is detwinned by stress does not revert when the load is
+removed; only heating above As reverts it. In the model each loading cycle that exceeds the critical stress therefore
+adds to xi_s+ and xi_s- (the tension- and compression-detwinned fractions), and these fractions never decrease. If the
+loading continues, the material eventually becomes fully detwinned and the damping from the transformation disappears.
+In free vibration this is self-limiting: the amplitude decays and soon falls below the critical stress, so the
+fractions stay below about 1 % and level off. Under sustained forced vibration the damping would degrade. A real
+damper in this regime would need periodic heating (a thermomechanical cycle) to reset the martensite.
+
+**Loss factor.** eta is a polynomial of the strain amplitude (of the stress amplitude in the super-elastic case) and is
+independent of the martensite fraction accumulated so far. The model therefore does not capture the loss of damping as the
+transformation saturates. A possible extension is to scale eta by the remaining twinned fraction.
+
+**Not modelled.** Self-heating from the hysteresis (a temperature rise shifts the transformation stresses), functional
+fatigue (the hysteresis loop shrinks over many cycles) and rate effects.
+
+**Super-elastic case (above Af).** Martensite reverts on unloading and the stress-strain loop closes in every cycle, so
+nothing accumulates. This is better for long-term use, at the cost of needing a pre-stress that places the beam at the
+transformation stress.
+
+**Other scope limits.**
+
+* One-dimensional Euler-Bernoulli beam, simply supported, with a one-dimensional Brinson-type constitutive law (good for
+  beams loaded along their axis; not a 3D constitutive law).
+* The material parameters and the loss-factor curves come from the thesis. Only the thesis geometry (N = 16 nodes) is
+  verified; other `N` should work in principle but are untested.
+* The results depend on the ODE tolerance, because stress reversals are detected on the solver's step grid: the ring-down of
+  the base case is about 2 % higher with `RelTol` 1e-5 than with the default 1e-3, and the super-elastic case is more
+  sensitive (its late peaks move by a few percent under round-off-level changes).
+* Octave has no `ode23t`; `ode23s` is used instead, so numbers differ slightly from a MATLAB run.
+* In the `pulse` case the force is applied to the two elements centred at x = 533 mm, not exactly at mid-span.
+* The start window is busy while a simulation runs (progress is printed in the command window; Ctrl+C stops a run). It
+  is built from plain `uicontrol`s, so its look varies a little between Octave on Windows/Linux and MATLAB; it was tested
+  headless under GNU Octave 10.3 (Qt) on Linux only.
 
 ## Roadmap
 
@@ -352,4 +366,4 @@ presses Run with a short `Tf`; needs a display, on Linux `xvfb-run -a octave --n
 ## Licence
 
 MIT, see `LICENSE` (Copyright (c) 2026 Federico Aghito). The code contains no third-party code
-(the optional field plots use an own moving-average, `src/smooth_mean2d.m`).
+(the optional field plots use their own moving average, `src/smooth_mean2d.m`).
