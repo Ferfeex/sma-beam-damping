@@ -9,8 +9,6 @@ if nargin < 9 || isempty(lab), lab = struct('ylabel','h [mm]','suffix',''); end 
 y = linspace(thick/2,-thick/2,10)';
 for ind = length(xysp(1,:))
     epsilones = reshape(epsyylon(:,ind),length(y),[]);
-    epsiloness = smooth_mean2d(epsilones,1,8); 
-%     ss = reshape(s(:,ind),length(y),[]);
     xip = reshape(xysp(:,ind),length(y),[]);
     xips = smooth_mean2d(xip,1,8);  
     xim = reshape(xysm(:,ind),length(y),[]);
@@ -22,30 +20,12 @@ for ind = length(xysp(1,:))
     xx = linspace(0,L,400);
     yy = linspace(thick/2,-thick/2,200);
     [xx,yy]=meshgrid(xx,yy);
-    epsilonesi = interp2(X,Y,epsiloness,xx,yy);
     xipi = interp2(X,Y,xips,xx,yy);
   
     ximi = interp2(X,Y,xims,xx,yy);
 
     xiti = interp2(X,Y,xits,xx,yy);
     figure(fig); clf
-%     subplot(4,1,1)
-%     mesh(xx,yy,epsilonesi)
-%     xlabel('length [mm]')
-%     ylabel('h [mm]')
-%     colorbar
-%     h = colorbar;
-%     ylabel(h, '\epsilon')
-%     set(h, 'Fontsize', 10)
-
-%     drawnow
-%     subplot(2,1,2)
-%     mesh(x,y,ss)
-%     xlabel('length [mm]')
-%     ylabel('thickness [mm]')
-%     colorbar
-%     title('Strain field')
-%     drawnow
     subplot(3,1,1)
     mesh(xx,yy,xipi)
     xlabel('length [mm]')
