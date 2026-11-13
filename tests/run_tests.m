@@ -132,6 +132,114 @@ else
     fprintf('SKIP  dashboard (graphics toolkit without uipanel)\n');
 end
 
+% 2f. one-window animations: tabs, continuous loop, speed control, pause / stop / closing the window
+if dashboard_supported()
+    rp_ = run_case('base','Tf',0.1,'figures','none','save_mat',false,'plot_fields',true,'animate_compare','gif','outdir',od,'animate_opts',{'speed',0.5,'verbose',false});
+    A_ = struct('beam',true,'compare',true,'fields',true,'refc',rp_.reference,'speed',0.5,'autoplay',true);
+    nfig0_ = numel(findobj(0,'type','figure'));
+    fp_ = dashboard(rp_, rp_.cfg, [], 'visible', false, 'plots', false, 'anim', A_);
+    dp_ = getappdata(fp_,'dash');
+    check('dashboard: animation tabs Beam / SMA vs linear / Martensite, no other window opened', isequal(dp_.names,{'Beam animation','SMA vs linear animation','Martensite animation'}) && all(dp_.isanim) && numel(findobj(0,'type','figure')) == nfig0_+1);
+    ii_ = dashboard_play(fp_,'maxtime',1.5);
+    check('dashboard_play: only the visible tab is animated, the hidden ones wait', ii_.frames(1) > 5 && all(ii_.frames(2:3) == 0) && ~ii_.closed, sprintf('frames per tab %s in 1.5 s', mat2str(ii_.frames)));
+    dashboard_select(fp_,3);  ii_ = dashboard_play(fp_,'maxtime',1.0);
+    check('switching the tab moves the animation to the new tab', ii_.frames(3) > 3 && all(ii_.frames(1:2) == 0), sprintf('frames per tab %s', mat2str(ii_.frames)));
+    %   continuous loop: wraps around at the end; speed control scales the playback
+    dashboard_select(fp_,1);
+    dashboard_ctrl(fp_,1,'speed',1);   i1_ = dashboard_play(fp_,'maxtime',1.5);
+    dashboard_ctrl(fp_,1,'speed',0.25);  i2_ = dashboard_play(fp_,'maxtime',1.5);
+    check('animation loops continuously and the speed control scales it (1x vs 0.25x)', i1_.wraps(1) >= 5 && i2_.wraps(1) >= 1 && i1_.wraps(1) > 2*i2_.wraps(1), sprintf('passes in 1.5 s: %d at 1x, %d at 0.25x (Tf = %g s)', i1_.wraps(1), i2_.wraps(1), rp_.TT(end)));
+    dashboard_ctrl(fp_,1,'slower'); sp_ = getappdata(fp_,'play_speed'); dashboard_ctrl(fp_,1,'faster'); sp2_ = getappdata(fp_,'play_speed');
+    for q_ = 1:20, dashboard_ctrl(fp_,1,'slower'); end;  spm_ = getappdata(fp_,'play_speed');
+    for q_ = 1:30, dashboard_ctrl(fp_,1,'faster'); end;  spM_ = getappdata(fp_,'play_speed');
+    hc_ = getappdata(fp_,'play_ctrl');
+    check('speed buttons: -/+ step by 1.5x and stay within 0.02 ... 1; the slider and the label follow', abs(sp_(1)-0.25/1.5) < 1e-12 && abs(sp2_(1)-0.25) < 1e-12 && abs(spm_(1)-0.02) < 1e-12 && abs(spM_(1)-1) < 1e-12 && abs(get(hc_(1,2),'value')) < 1e-12 && ~isempty(strfind(get(hc_(1,3),'string'),'1x real time')), sprintf('%.4g %.4g %.4g %.4g', sp_(1), sp2_(1), spm_(1), spM_(1)));
+    set(hc_(1,2),'value',log10(0.1)); dashboard_ctrl(fp_,1,'slider'); sp3_ = getappdata(fp_,'play_speed');
+    check('speed slider sets the speed (log scale)', abs(sp3_(1)-0.1) < 1e-9);
+    %   pause / Stop / closing the window while the loop runs
+    dashboard_ctrl(fp_,1,'speed',1);
+    ip_ = dashboard_play(fp_,'maxtime',1.5,'hook',@(f,i) play_hook(f,i,'pause',5));
+    onp_ = getappdata(fp_,'play_on');
+    check('Pause: the tab stops advancing (loop keeps running, button reads Play)', ip_.frames(1) > 0 && ip_.frames(1) <= 8 && ~onp_(1) && strcmp(get(hc_(1,1),'string'),'Play') && ip_.elapsed >= 1.4, sprintf('%d frames before the pause, play_on %d, button %s, %.2f s', ip_.frames(1), onp_(1), get(hc_(1,1),'string'), ip_.elapsed));
+    close(fp_);
+    fp_ = dashboard(rp_, rp_.cfg, [], 'visible', false, 'plots', false, 'anim', A_);
+    is_ = dashboard_play(fp_,'maxtime',5,'hook',@(f,i) play_hook(f,i,'stop',10));
+    check('Stop ends the loop at once and leaves the window open', is_.elapsed < 2 && ishandle(fp_) && ~getappdata(fp_,'play_run') && ~any(getappdata(fp_,'play_on')), sprintf('left after %.2f s', is_.elapsed));
+    setappdata(fp_,'play_on',true(1,3));  ir_ = dashboard_play(fp_,'maxtime',1);
+    check('the loop can be started again after Stop (Play)', ir_.frames(1) > 5, sprintf('%d frames', ir_.frames(1)));
+    fp2_ = dashboard(rp_, rp_.cfg, [], 'visible', false, 'plots', false, 'anim', A_);
+    ok_ = true;  try, txt_ = evalc('ic_ = dashboard_play(fp2_,''maxtime'',5,''hook'',@(f,i) play_hook(f,i,''close'',10));'); catch, ok_ = false; end
+    check('closing the window during playback ends the loop without an error', ok_ && ic_.closed && ic_.elapsed < 2 && ~ishandle(fp2_) && isempty(strtrim(txt_)), sprintf('left after %.2f s', ic_.elapsed));
+    if ishandle(fp_), close(fp_); end
+    %   run_case: animations in the dashboard, GIF speed, blocking behaviour
+    nf0_ = numel(findobj(0,'type','figure'));
+    t0_ = tic;
+    setappdata(0,'sma_play_test',struct('maxtime',1));
+    rq_ = run_case('base','Tf',0.05,'figures','save','save_mat',false,'outdir',od,'animate',true,'animate_compare','both','animate_fields',true,'plot_fields',true,'anim_speed',0.5);
+    tq_ = toc(t0_);  rmappdata(0,'sma_play_test');
+    dq_ = getappdata(rq_.dashboard,'dash');
+    check('run_case(animate*): animations are tabs of ONE window, no extra windows, loops until stopped (here: 1 s)', isfield(rq_,'dashboard') && ishandle(rq_.dashboard) && numel(findobj(0,'type','figure')) == nf0_+1 && numel(dq_.names) == 3 && ~isfield(rq_,'animation') && isfield(rq_,'animation_compare'), strjoin(dq_.names,' | '));
+    close(rq_.dashboard);
+    setappdata(0,'sma_play_test',struct('hook',@(f,i) play_hook(f,i,'close',15)));
+    t0_ = tic;  rq2_ = run_case('base','Tf',0.05,'figures','none','save_mat',false,'animate',true);  tq2_ = toc(t0_);  rmappdata(0,'sma_play_test');
+    check('run_case returns once the animation window is closed', tq2_ < 15 && ~ishandle(rq2_.dashboard), sprintf('%.1f s in all (solve + build + playback)', tq2_));
+    rq3_ = run_case('base','Tf',0.05,'figures','none','save_mat',false,'animate',true,'anim_block',false);
+    onq_ = getappdata(rq3_.dashboard,'play_on');
+    check('anim_block = false: returns at once with the animations paused (Play starts them)', ishandle(rq3_.dashboard) && ~any(onq_));
+    close(rq3_.dashboard);
+    ga_ = run_case('base','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate_compare','gif','anim_speed',0.5);  ia_ = imfinfo(fullfile(od,'base_animation_compare.gif'));
+    gb_ = run_case('base','Tf',0.07,'figures','none','save_mat',false,'outdir',od,'animate_compare','gif','anim_speed',0.25);  ib_ = imfinfo(fullfile(od,'base_animation_compare.gif'));
+    check('anim_speed sets the GIF speed (half the speed = twice the frames)', abs(numel(ib_) - 2*numel(ia_)) <= 2 && abs(ga_.animation_compare.speed-0.5) < 1e-12, sprintf('%d frames at 0.5, %d at 0.25', numel(ia_), numel(ib_)));
+    gf1_ = run_case('base','Tf',0.1,'figures','none','save_mat',false,'outdir',od,'animate_fields','gif','anim_speed',0.2,'plot_fields',true);
+    gf2_ = run_case('base','Tf',0.1,'figures','none','save_mat',false,'outdir',od,'animate_fields','gif','anim_speed',0.1,'plot_fields',true);
+    check('anim_speed for the martensite GIF: frames at uniform times, scale with 1/speed', gf2_.animation_fields.nframes > 1.7*gf1_.animation_fields.nframes, sprintf('%d vs %d frames', gf1_.animation_fields.nframes, gf2_.animation_fields.nframes));
+    ok_ = false; try, run_case('base','Tf',0.01,'figures','none','save_mat',false,'anim_speed',-1); catch, ok_ = true; end
+    check('anim_speed must be a positive number', ok_);
+else
+    fprintf('SKIP  one-window animations (graphics toolkit without uipanel)\n');
+end
+%     colour bar tick labels: 5 evenly spaced, increasing ticks from clim(1) to clim(2), each label is its tick value
+fcb_ = figure('visible','off');
+okcb_ = true;  dcb_ = '';
+for cl_ = {[0 0.0126], [0.9744 1], [-0.31e-3 0.31e-3], [0 1e-12]}
+    axb_ = hand_colorbar(fcb_,[0.8 0.1 0.03 0.8],cl_{1},jet(128),'','%.4f');
+    tk_ = get(axb_,'ytick');  lb_ = str2double(get(axb_,'yticklabel'));  yl_ = get(axb_,'ylim');
+    good_ = numel(tk_) == 5 && all(diff(tk_) > 0) && max(abs(diff(tk_)-mean(diff(tk_)))) < 1e-9*max(1,abs(cl_{1}(2))) ...
+        && abs(tk_(1)-cl_{1}(1)) < 1e-12 && abs(tk_(end)-cl_{1}(2)) < 1e-12 && all(isfinite(lb_)) && all(diff(lb_(:).') >= 0) ...
+        && all(abs(lb_(:).'-tk_) <= 0.5e-4 + 1e-12) && tk_(1) >= yl_(1)-1e-12 && tk_(end) <= yl_(2)+1e-12;
+    okcb_ = okcb_ && good_;  dcb_ = [dcb_ sprintf('[%g %g]: %s  ', cl_{1}, strjoin(get(axb_,'yticklabel')',' '))];
+end
+check('hand_colorbar: 5 evenly spaced, increasing tick labels equal to the tick values, ends at the colour limits', okcb_, dcb_);
+close(fcb_);
+if dashboard_supported()
+    fcf_ = figure('visible','off');  afo_ = animate_fields(rp_, rp_.cfg, 'parent', fcf_, 'verbose', false);
+    cbs_ = findobj(fcf_,'type','axes','-and','yaxislocation','right');  okf_ = numel(cbs_) == 3;  dfl_ = '';
+    for q_ = 1:numel(cbs_)
+        tk_ = get(cbs_(q_),'ytick');  lb_ = str2double(get(cbs_(q_),'yticklabel'));
+        okf_ = okf_ && all(diff(tk_) > 0) && all(diff(lb_(:).') >= 0) && all(abs(lb_(:).'-tk_) <= 0.5e-4+1e-12) && any(all(abs(afo_.clim - repmat([tk_(1) tk_(end)],3,1)) < 1e-12, 2));
+        dfl_ = [dfl_ strjoin(get(cbs_(q_),'yticklabel')',' ') ' | '];
+    end
+    check('animate_fields colour bars: tick labels increasing, equal to the ticks, ends = colour limits of each map', okf_, dfl_);
+    close(fcf_);
+    fcb2_ = figure('visible','off');  abo_ = animate_beam(rf, rf.cfg, 'parent', fcb2_, 'verbose', false);
+    cb2_ = findobj(fcb2_,'type','axes','-and','yaxislocation','right');
+    tk_ = get(cb2_,'ytick');  lb_ = str2double(get(cb2_,'yticklabel'));
+    check('animate_beam strain colour bar: labels = tick values x 1e3, increasing', numel(cb2_) == 1 && all(diff(tk_) > 0) && all(diff(lb_(:).') > 0) && all(abs(lb_(:).'-tk_*1e3) <= 0.5e-2+1e-12), strjoin(get(cb2_,'yticklabel')',' '));
+    close(fcb2_);
+end
+%     composite: the martensite / strain fields exist only over the SMA core (geom.thick), the GFRP skins are linear
+cb_ = case_composite();  cs0_ = case_base();
+check('section label: SMA core named for the sandwich beam, plain h for the SMA beam', ~isempty(strfind(sma_section_label(cb_,'axis'),'SMA core')) && ~isempty(strfind(sma_section_label(cb_,'suffix'),'pm5')) && strcmp(sma_section_label(cs0_,'axis'),'h [mm]') && isempty(sma_section_label(cs0_,'suffix')) && cb_.geom.thick == 10);
+rcf_ = run_case('composite','Tf',0.02,'figures','none','save_mat',false,'plot_fields',true);
+check('composite: martensite snapshots are defined at the SMA integration points only (n_y x n_csi x elements)', size(rcf_.snapshots.xisp,1) == rcf_.snapshots.n_y*rcf_.snapshots.n_csi*(cb_.geom.N-1) && cb_.hle.thick > cb_.hle.thick2 && cb_.hle.thick2 == cb_.geom.thick, sprintf('%d points, SMA core %g mm of %g mm', size(rcf_.snapshots.xisp,1), cb_.geom.thick, cb_.hle.thick));
+fm_ = figure('visible','off');  ff_ = rcf_.fields;
+meshare(ff_.epsyylon,ff_.xysp,ff_.xysm,ff_.xyT,rcf_.TT,cb_.geom.thick,cb_.geom.L,fm_,struct('ylabel',sma_section_label(cb_,'axis'),'suffix',sma_section_label(cb_,'suffix')));
+axm_ = findobj(fm_,'type','axes');  axm_ = axm_(arrayfun(@(a) ~strcmp(get(a,'tag'),'colorbar') && ~isempty(get(get(a,'ylabel'),'string')) && ~isempty(strfind(get(get(a,'ylabel'),'string'),'h [mm]')), axm_));
+yl_ = cell2mat(arrayfun(@(a) get(a,'ylim'), axm_(:), 'uniformoutput', false));
+check('martensite field plot: h axis spans exactly the SMA core +-thick/2, labelled SMA core', ~isempty(axm_) && all(abs(yl_(:,1)+cb_.geom.thick/2) < 1e-12) && all(abs(yl_(:,2)-cb_.geom.thick/2) < 1e-12), sprintf('ylim %s', mat2str(yl_(1,:))));
+close(fm_);
+
+
 % 3. global state is reset between runs: same case twice in one session -> identical
 r2 = run_case('base','Tf',Tf,'figures','none','save_mat',false);
 check('re-run in the same session identical', isequal(r.XX,r2.XX), sprintf('max |dXX| = %g', max(abs(r.XX(:)-r2.XX(:)))));

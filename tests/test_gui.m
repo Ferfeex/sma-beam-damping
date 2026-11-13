@@ -15,6 +15,7 @@ ref = run_case('base','Tf',0.05,'figures','none','save_mat',false);
 pfile_before = dir(fullfile(root,'data','p.mat'));
 d0 = load(fullfile(root,'data','p.mat'));
 
+setappdata(0,'sma_play_test',struct('maxtime',1));    % animations normally loop until stopped; here each playback ends after 1 s
 fig = sma_gui();  setappdata(fig,'Silent',true);  drawnow;
 S = getappdata(fig,'S'); H = S.H;
 check('window opens', ishandle(fig) && numel(S.C)==7, sprintf('(%d cases)',numel(S.C)));
@@ -96,9 +97,18 @@ check('Save GIF only: results/base_animation.gif written, no animation window', 
     sprintf('%d frames, %.0f kB', r5.animation.nframes, dirbytes(gfile)/1e3));
 delete(gfile);  set(H.anim,'value',1); set(H.gif,'value',0); setappdata(fig,'LastResult',[]);
 sma_gui('run',fig); r6 = getappdata(fig,'LastResult');
-check('Animate beam only: plays in a window, no GIF file', ~isempty(r6) && isfield(r6,'animation') && isempty(r6.animation.gif) && exist(gfile,'file')~=2 && numel(findobj(0,'type','figure')) > nfig1);
+d6 = getappdata(r6.dashboard,'dash');
+check('Animate beam only: loops in a dashboard tab (Beam animation), no GIF file, no extra window', ~isempty(r6) && isfield(r6,'dashboard') && strcmp(strjoin(d6.names,'|'),'Beam animation') && ~isfield(r6,'animation') && exist(gfile,'file')~=2 && numel(findobj(0,'type','figure')) == nfig1+1);
 close(setdiff(findobj(0,'type','figure'), fig));
-set(H.anim,'value',0); set(H.gif,'value',0);
+% animation speed field: used for the GIF and as the start speed of the on-screen animation
+set(H.anim,'value',1); set(H.gif,'value',1); set(H.aspeed,'string','0.5'); setappdata(fig,'LastResult',[]);
+sma_gui('run',fig); r6b = getappdata(fig,'LastResult');
+check('Animation speed field 0.5: GIF speed and start speed of the animation tab', ~isempty(r6b) && abs(r6b.animation.speed-0.5) < 1e-12 && abs(getappdata(r6b.dashboard,'play_speed')(1)-0.5) < 1e-12);
+if exist(gfile,'file'), delete(gfile); end
+close(setdiff(findobj(0,'type','figure'), fig));
+set(H.aspeed,'string','5'); setappdata(fig,'LastResult',[]); sma_gui('run',fig);
+check('Animation speed field out of range (5): refused, nothing run', isempty(getappdata(fig,'LastResult')));
+set(H.aspeed,'string','0.1'); set(H.anim,'value',0); set(H.gif,'value',0);
 
 % --- run 6: dashboard (default) vs separate windows; comparison + martensite animations from the window ------------------------
 set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.07'); set(H.fld,'value',1); set(H.cmp,'value',1); set(H.figs,'value',2);   % show only
@@ -124,11 +134,41 @@ set(H.canim,'value',1); set(H.fanim,'value',1); set(H.gif,'value',1); set(H.anim
 gc = fullfile(root,'results','base_animation_compare.gif'); gfl = fullfile(root,'results','base_fields_animation.gif');
 if exist(gc,'file'), delete(gc); end;  if exist(gfl,'file'), delete(gfl); end
 setappdata(fig,'LastResult',[]); sma_gui('run',fig); r9 = getappdata(fig,'LastResult');
-check('SMA vs linear + martensite animations with Save GIF: both GIF files written', ~isempty(r9) && exist(gc,'file')==2 && exist(gfl,'file')==2 && isfield(r9,'animation_compare') && isfield(r9,'animation_fields'));
+d9 = getappdata(r9.dashboard,'dash');
+check('SMA vs linear + martensite animations with Save GIF: both GIF files written, both in the one window', ~isempty(r9) && exist(gc,'file')==2 && exist(gfl,'file')==2 && isfield(r9,'animation_compare') && isfield(r9,'animation_fields') && isequal(d9.names,{'SMA vs linear animation','Martensite animation'}) && numel(findobj(0,'type','figure')) == 2);
 if exist(gc,'file'), delete(gc); end;  if exist(gfl,'file'), delete(gfl); end
 close(setdiff(findobj(0,'type','figure'), fig));
 set(H.canim,'value',0); set(H.fanim,'value',0); set(H.gif,'value',0);
 
+% --- real mouse clicks on the controls of the running animation (X11 + xdotool) -------------------------------------------------
+[st,out] = system('xdotool search --name "SMA beam - start window" | head -1');
+if isunix && st == 0 && ~isempty(strtrim(out)) && ~isempty(getenv('DISPLAY')) && ~isempty(shotdir)
+    flag = [tempname() '.flag'];  shotf = fullfile(shotdir,'gui_animation_tab.png');
+    setappdata(0,'play_log',zeros(0,3));
+    setappdata(0,'sma_play_test',struct('maxtime',40,'hook',@(f,i) play_log(f,i)));
+    system(sprintf('bash %s %s %s %s > /dev/null 2>&1 &', fullfile(fileparts(mfilename('fullpath')),'xdrive_dashboard.sh'), getenv('DISPLAY'), shotf, flag));
+    set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.05'); set(H.fld,'value',0); set(H.cmp,'value',0); set(H.figs,'value',2);
+    set(H.anim,'value',1); set(H.canim,'value',1); set(H.gif,'value',0); set(H.dash,'value',1); set(H.aspeed,'string','0.1');
+    setappdata(fig,'LastResult',[]);  t0 = tic;  sma_gui('run',fig);  r10 = getappdata(fig,'LastResult');  t10 = toc(t0);
+    L = getappdata(0,'play_log');
+    okc = ~isempty(r10) && ishandle(r10.dashboard);
+    if okc
+        spd = getappdata(r10.dashboard,'play_speed');  non = getappdata(r10.dashboard,'play_on');  dd10 = getappdata(r10.dashboard,'dash');
+    end
+    check('clicks: Stop ends the playback loop (run returns), the window stays open, all tabs paused', okc && ~any(non) && t10 < 38, sprintf('returned after %.1f s', t10));
+    check('clicks: "+" twice raised the speed of the tab (0.1 -> 0.225), only that tab', okc && abs(spd(2)-0.225) < 1e-9 && abs(spd(3)-0.1) < 1e-9, sprintf('speeds %s', mat2str(spd,3)));
+    check('clicks: tab buttons switch the animated tab (both animation tabs were played, hidden one paused)', all(ismember([2 3], unique(L(:,2)))) && numel(L) > 30, sprintf('%d loop passes, tabs %s', size(L,1), mat2str(unique(L(:,2))')));
+    if okc
+        setappdata(0,'sma_play_test',struct('maxtime',40,'hook',@(f,i) play_hook(f,i,'close',40)));
+        fid = fopen(flag,'w'); fclose(fid);
+        w0 = tic;  while ishandle(r10.dashboard) && toc(w0) < 20, pause(0.2); end
+        check('clicks: Play restarts the loop after Stop; closing the window then ends it cleanly', ~ishandle(r10.dashboard), sprintf('%.1f s', toc(w0)));
+    end
+    delete(flag);
+else
+    fprintf('SKIP  clicks on the animation controls (needs X11 + xdotool and a screenshot folder)\n');
+end
+rmappdata(0,'sma_play_test');
 close all
 if nfail == 0, fprintf('\nALL GUI TESTS PASSED\n'); else, fprintf('\n%d GUI TEST(S) FAILED\n',nfail); end
 end
