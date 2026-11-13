@@ -25,6 +25,9 @@ function res = run_case(c, varargin)
 %     'plot_fields' true = also plot, at the last time step, the martensite fractions (src/meshare.m, <case>_fields.png)
 %                   and the deformed beam + strain map (src/strain_figure.m, <case>_strain.png), and the martensite
 %                   fractions versus time and position along the beam (src/martensite_xt.m, <case>_martensite_xt.png)
+%     'dashboard'   true (default) | false: with 'figures' = 'show' / 'both' put the result plots in ONE window with tab
+%                   buttons (src/dashboard.m: deflection, SMA vs linear, strain, martensite) instead of separate
+%                   windows; false = the old separate windows. The PNG files are the same either way.
 %     'animate'     false (default) | true = play the beam vibration in a window (src/animate_beam.m) |
 %                   'gif' = write <outdir>/<case>_animation.gif (no window) | 'both' = window AND GIF.
 %                   Slow motion, 25 fps, deflection exaggerated; works for every case.
@@ -111,8 +114,12 @@ end
 
 show = any(strcmp(opt.figures,{'show','both'}));
 dosave = any(strcmp(opt.figures,{'save','both'}));
-if ~strcmp(opt.figures,'none')
-    if show, f = figure; else, f = figure('visible','off'); end
+% ONE tabbed window (src/dashboard.m) instead of separate figure windows when figures are shown; the PNG files are
+% written from hidden figures exactly as before. Falls back to separate windows if the toolkit has no uipanel.
+use_dash = show && opt.dashboard && dashboard_supported();
+vis_sep  = show && ~use_dash;                       % separate visible windows
+if ~strcmp(opt.figures,'none') && (dosave || vis_sep)
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     plot(res.TT, res.midspan, 'LineWidth', 1.5); hold on   % deflection at x = L/2
     if ~isempty(ref), plot(ref.TT, ref.midspan, 'LineWidth', 1.5); end
     grid on; xlabel('Time t [s]'); ylabel('Displacement \delta [mm]');
@@ -124,36 +131,35 @@ if ~strcmp(opt.figures,'none')
         if ~exist(opt.outdir,'dir'), mkdir(opt.outdir); end
         fn = fullfile(opt.outdir, [cfg.name tag '_midspan.png']);
         print(f,'-dpng','-r110',fn);
-        if ~show, close(f); end
         fprintf('figure: %s\n', fn);
     end
-    if show, drawnow; end
+    if vis_sep, drawnow; else, close(f); end
 end
-if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none')
+if opt.plot_fields && isfield(res,'fields') && strcmp(cfg.model,'two_phase') && ~strcmp(opt.figures,'none') && (dosave || vis_sep)
     ff = res.fields;
     if ~exist(opt.outdir,'dir') && dosave, mkdir(opt.outdir); end
     % 1) martensite fractions over the beam at the last time step (thesis 'Simulazione_lunga')
-    if show, f = figure; else, f = figure('visible','off'); end
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     meshare(ff.epsyylon,ff.xysp,ff.xysm,ff.xyT,res.TT,cfg.geom.thick,cfg.geom.L,f);
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_fields.png']);
         print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if ~show, close(f); else, drawnow; end
+    if ~vis_sep, close(f); else, drawnow; end
     % 2) thesis-style deformed beam + strain map at the last time step
-    if show, f = figure; else, f = figure('visible','off'); end
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     strain_figure(ff.epsyylon,res.XX,cfg.geom.N,cfg.geom.L,cfg.geom.thick,res.TT(end),f);
     if dosave
         fn = fullfile(opt.outdir, [cfg.name tag '_strain.png']);
         print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if ~show, close(f); else, drawnow; end
+    if ~vis_sep, close(f); else, drawnow; end
 end
-if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none')
+if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none') && (dosave || vis_sep)
     % 3) martensite fractions versus time and position along the beam (thickness-averaged colour maps)
-    if show, f = figure; else, f = figure('visible','off'); end
+    if vis_sep, f = figure; else, f = figure('visible','off'); end
     set(f,'units','pixels','position',[100 80 700 760],'color','w','paperpositionmode','auto');
     martensite_xt(res, cfg, f);
     if dosave
@@ -162,7 +168,15 @@ if opt.plot_fields && isfield(res,'snapshots') && ~strcmp(opt.figures,'none')
         print(f,'-dpng','-r110',fn);
         fprintf('figure: %s\n', fn);
     end
-    if ~show, close(f); else, drawnow; end
+    if ~vis_sep, close(f); else, drawnow; end
+end
+if use_dash
+    try
+        res.dashboard = dashboard(res, cfg, ref, 'title', [cfg.name tag]);
+        drawnow;
+    catch err
+        warning('run_case: the dashboard window could not be created (%s); use ''dashboard'',false for separate windows', err.message);
+    end
 end
 [am,doshow,dogif] = anim_mode_(opt.animate,'animate');
 if ~strcmp(am,'none')

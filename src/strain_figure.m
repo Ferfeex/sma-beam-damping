@@ -8,9 +8,11 @@ function [xs, ws] = strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
 %   XX       : state history [velocities(2N-2) displacements(2N-2)] (res.XX), last row is used
 %   xs, ws   : (optional outputs) abscissae and deflection of the plotted deformed shape; ws at x = L/2
 %              equals res.midspan(end) (src/midspan_deflection.m, checked in tests/run_tests.m)
-%   fig      : (optional) figure handle to draw in; a new figure is opened if omitted.
+%   fig      : (optional) figure handle to draw in; a new figure is opened if omitted. May also be a uipanel
+%              (dashboard tab); the colour bar is then drawn with hand_colorbar.
 if nargin < 7 || isempty(fig), fig = figure; end
-figure(fig); clf
+inpanel = ~strcmp(get(fig,'type'),'figure');   % drawn into a panel of the dashboard (src/dashboard.m)?
+if ~inpanel, figure(fig); clf, end
 Lk = L/(N-1);
 u  = XX(end, 2*N-1:end).';                 % free displacement dofs at the last step
 % nodal deflection w_k and rotation th_k = dw/dx (dof map of build_beam.m, verified: element dofs
@@ -29,15 +31,15 @@ for k = 1:N-1
 end
 xn = (0:N-1)*Lk;
 
-ax1 = subplot(2,1,1);
-plot([0 L],[0 0],'k--','LineWidth',1); hold on
-plot(xs,ws,'b','LineWidth',2);
-plot(xn,w,'bo','MarkerSize',4,'MarkerFaceColor','b');
-grid on; xlabel('length [mm]'); ylabel('vertical displacement [mm]');
-title(sprintf('Deformed beam at t = %.3g s', t_end));
-legend('undeformed','deformed','nodes','Location','northwest');
-xlim([0 L]);
-r_ = max(max(ws)-min(0,min(ws)), 1e-12);  ylim([min(0,min(ws))-0.08*r_, max(0,max(ws))+0.65*r_]);   % head-room for the legend
+if inpanel, ax1 = axes('parent',fig,'position',[0.12 0.64 0.80 0.28]); else, ax1 = subplot(2,1,1); end
+plot(ax1,[0 L],[0 0],'k--','LineWidth',1); hold(ax1,'on');
+plot(ax1,xs,ws,'b','LineWidth',2);
+plot(ax1,xn,w,'bo','MarkerSize',4,'MarkerFaceColor','b');
+grid(ax1,'on'); xlabel(ax1,'length [mm]'); ylabel(ax1,'vertical displacement [mm]');
+title(ax1,sprintf('Deformed beam at t = %.3g s', t_end));
+legend(ax1,'undeformed','deformed','nodes','Location','northwest');
+xlim(ax1,[0 L]);
+r_ = max(max(ws)-min(0,min(ws)), 1e-12);  ylim(ax1,[min(0,min(ws))-0.08*r_, max(0,max(ws))+0.65*r_]);   % head-room for the legend
 set(ax1,'Position',[0.12 0.64 0.80 0.28]);
 
 % ---- strain field ----
@@ -49,9 +51,14 @@ x = linspace(0,L,size(eps_,2))';
 xx = linspace(0,L,400);  yy = linspace(thick/2,-thick/2,200);
 [xx,yy] = meshgrid(xx,yy);
 Ei = interp2(X,Y,eps_s,xx,yy);
-ax2 = subplot(2,1,2);
-imagesc(xx(1,:), yy(:,1), Ei); set(gca,'YDir','normal');
-colormap(jet); h = colorbar; ylabel(h,'\epsilon'); set(h,'FontSize',10);
-xlabel('length [mm]'); ylabel('thickness [mm]'); title('Strain field');
+if inpanel, ax2 = axes('parent',fig,'position',[0.12 0.12 0.64 0.30]); else, ax2 = subplot(2,1,2); end
+imagesc(ax2,xx(1,:), yy(:,1), Ei); set(ax2,'YDir','normal');
+colormap(ax2,jet);
+if inpanel
+    hand_colorbar(fig,[0.78 0.12 0.025 0.30],[min(Ei(:)) max(Ei(:))],jet(128),'\epsilon','%.2g');
+else
+    h = colorbar; ylabel(h,'\epsilon'); set(h,'FontSize',10);
+end
+xlabel(ax2,'length [mm]'); ylabel(ax2,'thickness [mm]'); title(ax2,'Strain field');
 set(ax2,'Position',[0.12 0.12 0.64 0.30]);
 end
