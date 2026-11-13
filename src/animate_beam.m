@@ -25,6 +25,9 @@ function out = animate_beam(res, cfg, varargin)
 %     'still'        ''     file name of a PNG with one still frame (the frame of largest downward mid-span
 %                           deflection in the first fifth of the run)
 %     'verbose'      true
+%     'parent'       []     figure or uipanel to build the animation in (the dashboard tab) instead of a window or a GIF:
+%                           nothing is played or written; out.player holds the frame update function (see dashboard_play.m)
+%     'playframes'   300    number of uniform frame times prepared for an on-screen player ('parent' mode)
 %   Returns out: .gif (file), .nframes, .t (frame times), .exaggeration, .speed, .fps, .runtime_s, .frame_size
 %
 %   GIF writing is pure Octave/MATLAB (src/gif_write.m: imwrite 'gif', 'DelayTime', 'LoopCount' = Inf, so the
@@ -33,7 +36,7 @@ function out = animate_beam(res, cfg, varargin)
 %   (shipped with the Windows installer).
 t_start = tic;
 o = struct('gif','','show',false,'fps',25,'speed','auto','exaggeration','auto','strain',true,'history',true, ...
-           'tspan',[],'maxframes',600,'size',[560 480],'still','','verbose',true);
+           'tspan',[],'maxframes',600,'size',[560 480],'still','','verbose',true,'parent',[],'playframes',300);
 for k = 1:2:numel(varargin)
     if ~isfield(o,varargin{k}), error('animate_beam: unknown option "%s"', varargin{k}); end
     o.(varargin{k}) = varargin{k+1};
@@ -46,9 +49,11 @@ t0 = max(o.tspan(1),TT(1));  t1 = min(o.tspan(2),TT(end));
 if t1 <= t0, error('animate_beam: empty time span'); end
 
 % ---- uniform frame times ----------------------------------------------------------------------
+inparent = ~isempty(o.parent);
 if ischar(o.speed), speed = 0.1; else, speed = o.speed; end
 nfr = max(2, floor((t1-t0)*o.fps/speed) + 1);
-if nfr > o.maxframes
+if inparent, nfr = o.playframes; end                  % player: frames are picked from the wall clock, not from a frame rate
+if ~inparent && nfr > o.maxframes
     if o.verbose, fprintf('animate_beam: %d frames needed, capped at %d (playback speed raised to %.3g)\n', nfr, o.maxframes, (t1-t0)*o.fps/(o.maxframes-1)); end
     nfr = o.maxframes;  speed = (t1-t0)*o.fps/(nfr-1);
 end
@@ -86,47 +91,58 @@ if o.strain
 end
 
 % ---- figure ---------------------------------------------------------------------------------------
-if o.show, fig = figure('name','beam animation','numbertitle','off'); else, fig = figure('visible','off'); end
-set(fig,'units','pixels','position',[100 100 o.size],'color','w','paperpositionmode','auto');
+if inparent
+    fig = o.parent;  par = fig;
+else
+    if o.show, fig = figure('name','beam animation','numbertitle','off'); else, fig = figure('visible','off'); end
+    set(fig,'units','pixels','position',[100 100 o.size],'color','w','paperpositionmode','auto');
+    par = fig;
+end
 np = 1 + o.strain + o.history;
 gap = 0.055; top = 0.93; bot = 0.10; h_each = (top-bot-gap*(np-1))/np;
 ypos = @(i) top - i*h_each - (i-1)*gap;             % bottom edge of panel i (1-based)
 % panel 1
-ax1 = axes('position',[0.12 ypos(1) 0.74 h_each]); hold on
-plot([0 L],[0 0],'k--','linewidth',1);
-plot([0 L],[0 0],'k^','markersize',7,'markerfacecolor','k');
-hs = plot(xg, ex*W(1,:), 'b', 'linewidth', 2.5);
-axis([0 L -ylim_shape ylim_shape]); grid on; box on
-ylabel(sprintf('deflection x%g [mm]',ex)); 
+ax1 = axes('parent',par,'position',[0.12 ypos(1) 0.74 h_each]); hold(ax1,'on')
+plot(ax1,[0 L],[0 0],'k--','linewidth',1);
+plot(ax1,[0 L],[0 0],'k^','markersize',7,'markerfacecolor','k');
+hs = plot(ax1,xg, ex*W(1,:), 'b', 'linewidth', 2.5);
+axis(ax1,[0 L -ylim_shape ylim_shape]); grid(ax1,'on'); box(ax1,'on')
+ylabel(ax1,sprintf('deflection x%g [mm]',ex)); 
 set(ax1,'xticklabel',[]);
-ht = title('');
+ht = title(ax1,'');
 % panel 2
 if o.strain
-    ax2 = axes('position',[0.12 ypos(2) 0.74 h_each]);
-    him = imagesc(xi(1,:), yi(:,1), smoothfield(EPS(:,1))); set(ax2,'ydir','normal'); caxis(clim); colormap(ax2,jet(128));
-    ylabel('thickness [mm]'); title('strain field','fontsize',9);
-    if o.history, set(ax2,'xticklabel',[]); else, xlabel('length [mm]'); end
+    ax2 = axes('parent',par,'position',[0.12 ypos(2) 0.74 h_each]);
+    him = imagesc(ax2,xi(1,:), yi(:,1), smoothfield(EPS(:,1))); set(ax2,'ydir','normal'); set(ax2,'clim',clim); colormap(ax2,jet(128));
+    ylabel(ax2,sma_section_label(cfg,'thickness')); title(ax2,['strain field' sma_section_label(cfg,'suffix')],'fontsize',9);
+    if o.history, set(ax2,'xticklabel',[]); else, xlabel(ax2,'length [mm]'); end
     % colour bar drawn by hand (fixed position, same in Octave and MATLAB)
-    axc = axes('position',[0.88 ypos(2) 0.025 h_each]);
-    imagesc([0 1], linspace(clim(1),clim(2),128), linspace(clim(1),clim(2),128).'); set(axc,'ydir','normal');
-    caxis(clim); colormap(axc,jet(128)); tk = linspace(clim(1),clim(2),5);
-    set(axc,'xtick',[],'yaxislocation','right','fontsize',8,'ytick',tk,'yticklabel',arrayfun(@(v) sprintf('%.2f',v*1e3),tk,'uniformoutput',false));
-    title('\epsilon x 10^{-3}','fontsize',8);
-    axes(ax2);
+    axc = axes('parent',par,'position',[0.88 ypos(2) 0.025 h_each]);
+    imagesc(axc,[0 1], linspace(clim(1),clim(2),128), linspace(clim(1),clim(2),128).'); set(axc,'ydir','normal');
+    set(axc,'clim',clim); colormap(axc,jet(128)); tk = linspace(clim(1),clim(2),5);
+    set(axc,'xtick',[],'yaxislocation','right','fontsize',9,'ytick',tk,'yticklabel',arrayfun(@(v) sprintf('%.2f',v*1e3),tk,'uniformoutput',false));
+    title(axc,'\epsilon x 10^{-3}','fontsize',8);
 end
 % panel 3
 if o.history
-    ax3 = axes('position',[0.12 ypos(np) 0.74 h_each]); hold on
-    plot(TT(TT>=t0 & TT<=t1), res.midspan(iu(TT>=t0 & TT<=t1)), 'color',[0.6 0.6 0.6]);
-    hm = plot(tf(1), mid(1), 'ro', 'markerfacecolor','r', 'markersize',6);
-    axis([t0 t1 1.1*min(res.midspan) 1.1*max(res.midspan)]); grid on; box on
-    xlabel('time t [s]'); ylabel(sprintf('w(x=%g mm) [mm]', L/2));
+    ax3 = axes('parent',par,'position',[0.12 ypos(np) 0.74 h_each]); hold(ax3,'on')
+    plot(ax3,TT(TT>=t0 & TT<=t1), res.midspan(iu(TT>=t0 & TT<=t1)), 'color',[0.6 0.6 0.6]);
+    hm = plot(ax3,tf(1), mid(1), 'ro', 'markerfacecolor','r', 'markersize',6);
+    axis(ax3,[t0 t1 1.1*min(res.midspan) 1.1*max(res.midspan)]); grid(ax3,'on'); box(ax3,'on')
+    xlabel(ax3,'time t [s]'); ylabel(ax3,sprintf('w(x=%g mm) [mm]', L/2));
 end
 
 % ---- palette from a few sample frames, then render every frame ----------------------------------
 if o.strain, him_h = him; sf = smoothfield; EP = EPS; else, him_h = []; sf = []; EP = []; end
 if o.history, hm_h = hm; else, hm_h = []; end
-upd = @(j) local_update(j, hs, ex, W, ht, tf, speed, him_h, sf, EP, hm_h, mid, o.fps);
+upd = @(j) local_update(j, hs, ex, W, ht, tf, speed, him_h, sf, EP, hm_h, mid, true);
+if inparent
+    upd(1);
+    pl = @(j,spd) local_update(j, hs, ex, W, ht, tf, spd, him_h, sf, EP, hm_h, mid, false);
+    out = struct('gif','','nframes',nfr,'t',tf,'exaggeration',ex,'speed',speed,'fps',o.fps,'frame_size',[],'runtime_s',toc(t_start), ...
+        'player',struct('name','Beam animation','tf',tf,'update',pl,'nframes',nfr));
+    return
+end
 dogif = ~isempty(o.gif);
 frames = cell(nfr,1);
 if dogif
@@ -171,12 +187,12 @@ out.runtime_s = toc(t_start);
 end
 
 % ======================================================================================================
-function local_update(j, hs, ex, W, ht, tf, speed, him, sf, EP, hm, mid, fps)
+function local_update(j, hs, ex, W, ht, tf, speed, him, sf, EP, hm, mid, dodraw)
 set(hs,'ydata',ex*W(j,:));
 set(ht,'string',sprintf('t = %.4f s   (slow motion x%.3g, deflection x%g)', tf(j), 1/speed, ex),'fontsize',9);
 if ~isempty(him), set(him,'cdata',sf(EP(:,j))); end
 if ~isempty(hm), set(hm,'xdata',tf(j),'ydata',mid(j)); end
-drawnow;
+if dodraw, drawnow; end
 end
 
 function d = dirname(f)

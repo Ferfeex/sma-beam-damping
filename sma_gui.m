@@ -104,8 +104,12 @@ H.gif = mk('checkbox',[0.02 0.172 0.22 0.04],'Save GIF','value',0, ...
     'horizontalalignment','left');
 H.dash = mk('checkbox',[0.25 0.172 0.22 0.04],'One window (tabs)','value',1, ...
     'horizontalalignment','left');
-mk('text',[0.02 0.12 0.14 0.04],'Figures:','horizontalalignment','left');
-H.figs = uicontrol(fig,'style','popupmenu','units','normalized','position',[0.14 0.125 0.33 0.045], ...
+mk('text',[0.02 0.128 0.26 0.04],'Animation speed:','horizontalalignment','left');
+H.aspeed = uicontrol(fig,'style','edit','units','normalized','position',[0.22 0.133 0.10 0.045], ...
+    'string','0.1','backgroundcolor',[1 1 1],'tooltipstring','simulated seconds per real second: 1 = real time, 0.1 = 10x slow motion (0.02 - 1)');
+H.ashint = mk('text',[0.33 0.128 0.14 0.04],'x real time','horizontalalignment','left');
+mk('text',[0.02 0.082 0.12 0.04],'Figures:','horizontalalignment','left');
+H.figs = uicontrol(fig,'style','popupmenu','units','normalized','position',[0.14 0.087 0.33 0.045], ...
     'string',{'Show windows and save PNG','Show windows only','Save PNG only (no windows)','No figures'}, ...
     'value',1,'backgroundcolor',[1 1 1]);
 
@@ -145,7 +149,7 @@ set(H.tfhint,'string',sprintf('(blank = %g s)',C.Tf_def));
 lin = strcmp(C.model,'linear');
 set(H.cmp,'value',0,'enable',onoff(~lin));
 set(H.fld,'value',0,'enable',onoff(strcmp(C.model,'two_phase')));
-set(H.anim,'value',0); set(H.gif,'value',0);
+set(H.anim,'value',0); set(H.gif,'value',0); set(H.aspeed,'string','0.1');
 set(H.canim,'value',0,'enable',onoff(~lin)); set(H.fanim,'value',0,'enable',onoff(~lin));
 if lin
     S.pdef = []; S.pstr = repmat({''},1,S.nP);
@@ -278,12 +282,24 @@ else
 end
 end
 
+function [v,err] = read_speed(H)
+% animation speed field: simulated seconds per real second, 0.02 ... 1
+err = '';
+v = str2double(strrep(strtrim(get(H.aspeed,'string')),',','.'));
+if ~isscalar(v) || ~isfinite(v) || v < 0.02 || v > 1
+    err = 'The animation speed must be a number between 0.02 and 1 (1 = real time, 0.1 = 10x slow motion).';
+    v = [];
+end
+end
+
 function cb_run(fig)
 S = getappdata(fig,'S'); H = S.H;
 C = S.C(get(H.list,'value'));
 silent = isappdata(fig,'Silent') && getappdata(fig,'Silent');
 % ---- validate -------------------------------------------------------------------------------
 [Tf,err] = read_tf(H);
+if ~isempty(err), show_error(fig,err,silent); return, end
+[asp,err] = read_speed(H);
 if ~isempty(err), show_error(fig,err,silent); return, end
 [p,err] = read_p(S);
 if ~isempty(err)
@@ -307,10 +323,11 @@ if anim && sgif, args = [args {'animate','both'}]; elseif sgif && ~canim && ~fan
 if canim, args = [args {'animate_compare', ternary(sgif,'both',true)}]; end      % 'Save GIF' = window AND GIF
 if fanim, args = [args {'animate_fields', ternary(sgif,'both',true)}]; end
 args = [args {'dashboard', logical(get(H.dash,'value'))}];
+if abs(asp - 0.1) > 1e-12, args = [args {'anim_speed', asp}]; end      % default 0.1 = the default of run_case
 if ~isempty(Tf), args = [args {'Tf',Tf}]; end
 if pmod, args = [args {'p',p}]; end
 % ---- run ----------------------------------------------------------------------------------------
-set(H.status,'string',sprintf('RUNNING "%s" ... the window is busy until it finishes; progress is printed in the command window.',C.name));
+set(H.status,'string',sprintf('RUNNING "%s" ... the window is busy until it finishes; progress is printed in the command window. Animations loop in the results window until it is closed or Stop is pressed.',C.name));
 set(H.run,'enable','off'); drawnow;
 ok = true;
 try
