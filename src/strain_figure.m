@@ -1,4 +1,4 @@
-function [xs, ws] = strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
+function [xs, ws] = strain_figure(epsyylon, XX, N, L, thick, t_end, fig, lab)
 % STRAIN_FIGURE  thesis-style picture of the beam at the LAST time step:
 %   top    : vertical displacement along the beam [mm], deformed (cubic Hermite through the nodal
 %            deflections w and rotations theta) against the undeformed axis, with nodes marked;
@@ -10,6 +10,9 @@ function [xs, ws] = strain_figure(epsyylon, XX, N, L, thick, t_end, fig)
 %              equals res.midspan(end) (src/midspan_deflection.m, checked in tests/run_tests.m)
 %   fig      : (optional) figure handle to draw in; a new figure is opened if omitted. May also be a uipanel
 %              (dashboard tab); the colour bar is then drawn with hand_colorbar.
+%   lab      : (optional) struct with .ylabel and .suffix for the strain map (axis label and title ending); for the
+%              sandwich beam the map covers the SMA core only (src/sma_section_label.m)
+if nargin < 8 || isempty(lab), lab = struct('ylabel','thickness [mm]','suffix',''); end
 if nargin < 7 || isempty(fig), fig = figure; end
 inpanel = ~strcmp(get(fig,'type'),'figure');   % drawn into a panel of the dashboard (src/dashboard.m)?
 if ~inpanel, figure(fig); clf, end
@@ -59,6 +62,6 @@ if inpanel
 else
     h = colorbar; ylabel(h,'\epsilon'); set(h,'FontSize',10);
 end
-xlabel(ax2,'length [mm]'); ylabel(ax2,'thickness [mm]'); title(ax2,'Strain field');
+xlabel(ax2,'length [mm]'); ylabel(ax2,lab.ylabel); title(ax2,['Strain field' lab.suffix]);
 set(ax2,'Position',[0.12 0.12 0.64 0.30]);
 end
