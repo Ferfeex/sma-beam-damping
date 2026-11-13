@@ -85,8 +85,27 @@ set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.03'); set(H.f
 setappdata(fig,'LastResult',[]); sma_gui('run',fig);
 check('field plot run (save only) finished', ~isempty(getappdata(fig,'LastResult')) && exist(fullfile(root,'results','base_fields.png'),'file')==2 && exist(fullfile(root,'results','base_strain.png'),'file')==2);
 
+% --- run 5: animation: checkboxes 'Animate beam' + 'Save GIF' ----------------------------------------------------------
+check('checkboxes "Animate beam" and "Save GIF" exist', ishandle(H.anim) && ishandle(H.gif) && strcmp(get(H.anim,'string'),'Animate beam') && strcmp(get(H.gif,'string'),'Save GIF'));
+gfile = fullfile(root,'results','base_animation.gif');  if exist(gfile,'file'), delete(gfile); end
+set(H.list,'value',1); sma_gui('select',fig); set(H.tf,'string','0.03'); set(H.figs,'value',3);
+set(H.gif,'value',1); set(H.anim,'value',0); setappdata(fig,'LastResult',[]);
+nfig1 = numel(findobj(0,'type','figure'));
+sma_gui('run',fig); r5 = getappdata(fig,'LastResult');
+check('Save GIF only: results/base_animation.gif written, no animation window', ~isempty(r5) && isfield(r5,'animation') && exist(gfile,'file')==2 && numel(findobj(0,'type','figure')) == nfig1, ...
+    sprintf('%d frames, %.0f kB', r5.animation.nframes, dirbytes(gfile)/1e3));
+delete(gfile);  set(H.anim,'value',1); set(H.gif,'value',0); setappdata(fig,'LastResult',[]);
+sma_gui('run',fig); r6 = getappdata(fig,'LastResult');
+check('Animate beam only: plays in a window, no GIF file', ~isempty(r6) && isfield(r6,'animation') && isempty(r6.animation.gif) && exist(gfile,'file')~=2 && numel(findobj(0,'type','figure')) > nfig1);
+close(setdiff(findobj(0,'type','figure'), fig));
+set(H.anim,'value',0); set(H.gif,'value',0);
+
 close all
 if nfail == 0, fprintf('\nALL GUI TESTS PASSED\n'); else, fprintf('\n%d GUI TEST(S) FAILED\n',nfail); end
+end
+
+function b = dirbytes(f)
+d = dir(f); b = d.bytes;
 end
 
 function v = ternary(c,a,b)
